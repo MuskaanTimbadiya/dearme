@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #FDFCFB;
+    color: #2D2926;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+
+  h1, h2, h3, .font-serif {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+  }
+}
+
+/* Custom scrollbar for natural tones */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #E6E1D6;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #D4C9B0;
+}
+
+/* Markdown styling in natural tones */
+.markdown-body {
+  color: #3B3632;
+  font-size: 0.95rem;
+  line-height: 1.75;
+}
+
+.markdown-body p {
+  margin-bottom: 0.85rem;
+}
+
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body ul, .markdown-body ol {
+  margin-left: 1.25rem;
+  margin-bottom: 0.85rem;
+}
+
+.markdown-body li {
+  margin-bottom: 0.35rem;
+}
+
+.markdown-body strong {
+  color: #2D2926;
+  font-weight: 600;
+}
+
+.markdown-body blockquote {
+  border-left: 2px solid #5A5A40;
+  padding-left: 0.75rem;
+  font-style: italic;
+  color: #5C564E;
+  margin: 0.75rem 0;
+}
