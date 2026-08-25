@@ -37,7 +37,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInSuccess }) => 
             <Feather className="w-5 h-5 text-[#E6E1D6]" />
           </div>
           <div>
-            <h1 className="text-2xl font-serif font-semibold text-[#5A5A40] tracking-tight">Aura Reflect</h1>
+            <h1 className="text-2xl font-serif font-semibold text-[#5A5A40] tracking-tight">DearMe</h1>
             <p className="text-[10px] uppercase tracking-widest text-[#A8A294] font-sans">Mindful Intelligence</p>
           </div>
         </div>
@@ -149,7 +149,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInSuccess }) => 
 
       {/* Footer */}
       <footer className="w-full max-w-6xl mx-auto px-6 py-8 border-t border-[#F0EDE8] flex flex-col sm:flex-row items-center justify-between text-xs text-[#A8A294] font-sans uppercase tracking-widest gap-4">
-        <div>Aura Reflect • Natural Mindful Space</div>
+        <div>DearMe • Natural Mindful Space</div>
         <div className="flex items-center gap-4 text-[11px]">
           <span>Firestore Encrypted</span>
           <span>•</span>

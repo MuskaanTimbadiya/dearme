@@ -161,7 +161,7 @@ export default function App() {
           <Feather className="w-6 h-6 text-[#E6E1D6]" />
         </div>
         <p className="text-xs uppercase tracking-widest font-sans font-medium text-[#A8A294]">
-          Opening Aura Reflect...
+          Opening DearMe...
         </p>
       </div>
     );

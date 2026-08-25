@@ -1,5 +1,5 @@
 {
-  "name": "AI Reflection Journal",
+  "name": "DearMe",
   "description": "A user-authenticated private reflection and journaling application powered by Gemini and Firestore.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

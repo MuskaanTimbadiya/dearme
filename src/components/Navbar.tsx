@@ -25,7 +25,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <Feather className="w-4 h-4 text-[#E6E1D6]" />
         </div>
         <div>
-          <span className="font-serif font-semibold text-lg text-[#5A5A40] tracking-tight leading-none block">Aura Reflect</span>
+          <span className="font-serif font-semibold text-lg text-[#5A5A40] tracking-tight leading-none block">DearMe</span>
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-[#A8A294] font-sans mt-0.5">
             <ShieldCheck className="w-3 h-3 text-[#5A5A40]" />
             <span>Private Space ({user.email?.split('@')[0]})</span>

@@ -1,6 +1,6 @@
-# Aura Reflect - AI-Powered Reflection & Private Journal
+# DearMe - AI-Powered Reflection & Private Journal
 
-Aura Reflect is a full-stack, mindfulness-focused personal reflection and journaling application built with React, TypeScript, Express, Google Cloud Firestore, Firebase Authentication, and Google Gemini.
+DearMe is a full-stack, mindfulness-focused personal reflection and journaling application built with React, TypeScript, Express, Google Cloud Firestore, Firebase Authentication, and Google Gemini.
 
 ---
 
