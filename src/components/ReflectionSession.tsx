@@ -12,11 +12,12 @@ import {
   Feather,
 } from 'lucide-react';
 import Markdown from 'react-markdown';
+import { ErrorBanner } from './ErrorBanner';
 import type { JournalEntry, JournalMessage, ReflectionMode } from '../types';
 
 interface ReflectionSessionProps {
   entry: JournalEntry;
-  onUpdateEntry: (updated: JournalEntry) => void;
+  onUpdateEntry: (updated: JournalEntry) => Promise<void>;
   isSaving: boolean;
 }
 
@@ -54,15 +55,19 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [entry.messages, isGenerating]);
 
-  const handleTitleSubmit = () => {
+  const handleTitleSubmit = async () => {
     setIsEditingTitle(false);
     const newTitle = titleInput.trim() || 'Untitled Reflection';
     if (newTitle !== entry.title) {
-      onUpdateEntry({
-        ...entry,
-        title: newTitle,
-        updatedAt: Date.now(),
-      });
+      try {
+        await onUpdateEntry({
+          ...entry,
+          title: newTitle,
+          updatedAt: Date.now(),
+        });
+      } catch (err: any) {
+        setErrorMessage(err.message || 'Failed to update title.');
+      }
     }
   };
 
@@ -91,11 +96,15 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
       updatedAt: Date.now(),
     };
 
-    onUpdateEntry(updatedEntry);
-    setInputText('');
     setIsGenerating(true);
 
     try {
+      // WAIT for db save before clearing input (Throws on failure)
+      await onUpdateEntry(updatedEntry);
+      
+      // Clear input only after successful DB save is confirmed
+      setInputText('');
+
       // Call server-side /api/chat with full history
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -129,11 +138,11 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         updatedAt: Date.now(),
       };
 
-      onUpdateEntry(finalEntry);
+      await onUpdateEntry(finalEntry);
     } catch (err: any) {
-      console.error('Failed to get Gemini response:', err);
+      console.error('Failed to get Gemini response or save:', err);
       setErrorMessage(
-        err.message || 'Failed to connect with Gemini. Please check your API key setup.'
+        err.message || 'Failed to save or generate response. Please try again.'
       );
     } finally {
       setIsGenerating(false);
@@ -174,11 +183,11 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         updatedAt: Date.now(),
       };
 
-      onUpdateEntry(updated);
+      await onUpdateEntry(updated);
       setShowSummaryCard(true);
     } catch (err: any) {
       console.error('Summary error:', err);
-      setErrorMessage(err.message || 'Could not generate summary.');
+      setErrorMessage(err.message || 'Could not generate summary or save.');
     } finally {
       setIsSummarizing(false);
     }
@@ -219,13 +228,17 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
           )}
 
           <button
-            onClick={() =>
-              onUpdateEntry({
-                ...entry,
-                isFavorite: !entry.isFavorite,
-                updatedAt: Date.now(),
-              })
-            }
+            onClick={async () => {
+              try {
+                await onUpdateEntry({
+                  ...entry,
+                  isFavorite: !entry.isFavorite,
+                  updatedAt: Date.now(),
+                });
+              } catch (err: any) {
+                setErrorMessage(err.message || 'Failed to save favorite toggle.');
+              }
+            }}
             className="p-1 rounded-md text-[#A8A294] hover:text-[#5A5A40] cursor-pointer"
             title={entry.isFavorite ? 'Remove Favorite' : 'Mark as Favorite'}
           >
@@ -441,11 +454,11 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         )}
 
         {/* Error notification */}
-        {errorMessage && (
-          <div className="p-4 rounded-2xl bg-[#FDF2F2] border border-[#F5C6C6] text-xs text-[#9B2C2C]">
-            {errorMessage}
-          </div>
-        )}
+        <ErrorBanner 
+          message={errorMessage || ''} 
+          onRetry={inputText.trim() ? () => { setErrorMessage(null); handleSendMessage(); } : undefined} 
+          onDismiss={() => setErrorMessage(null)} 
+        />
 
         <div ref={messagesEndRef} />
       </div>

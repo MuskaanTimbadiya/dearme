@@ -11,7 +11,7 @@ DearMe is a full-stack, mindfulness-focused personal reflection and journaling a
 | **Input Surfaces** | Malicious payloads, NoSQL/Firestore injection, oversized prompts | Top-level body parsing with strict schema validation, input slicing, null-safe destructuring, and payload sanitation. |
 | **Planning & Reasoning** | Prompt injection, goal hijacking, tone disruption | System prompt boundaries, instruction hardening, and temperature stabilization (0.7). |
 | **Tool Execution** | API credential exposure, SSRF, backend exhaustion | Server-side Gemini proxy (`/api/chat`, `/api/summarize`), zero client-side API key exposure. |
-| **Memory & State** | Cross-user data leakage, unauthorized reads/writes | Path-scoped Firestore security rules (`request.auth.uid == userId`) and `sanitizeFirestorePayload` (stripping `undefined`). |
+| **Memory & State** | Cross-user data leakage, unauthorized reads/writes, silent write failures | Path-scoped Firestore security rules (`request.auth.uid == userId`), `sanitizeFirestorePayload` (stripping `undefined`), and strict input-to-save transaction verification with explicit user feedback and retry paths. |
 | **Inter-System Communication** | Token theft, secret leak in VCS | Google Cloud Secret Manager / env var injection for `GEMINI_API_KEY`, Federated Google OAuth. |
 
 ---

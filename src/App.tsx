@@ -6,6 +6,7 @@ import { LandingPage } from './components/LandingPage';
 import { Navbar } from './components/Navbar';
 import { SidebarHistory } from './components/SidebarHistory';
 import { ReflectionSession } from './components/ReflectionSession';
+import { ErrorBanner } from './components/ErrorBanner';
 import { Feather, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -15,6 +16,14 @@ export default function App() {
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [isLoadingEntries, setIsLoadingEntries] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  type FailedOperation = {
+    type: 'create' | 'update' | 'delete' | 'favorite';
+    payload: any;
+    entryId: string;
+    errorMessage: string;
+  };
+  const [failedOp, setFailedOp] = useState<FailedOperation | null>(null);
 
   // Auth state subscriber
   useEffect(() => {
@@ -74,8 +83,39 @@ export default function App() {
     }
   }, [currentUser?.uid, fetchEntries]);
 
+  const handleRetryOp = () => {
+    if (!failedOp) return;
+    const { type, payload, entryId } = failedOp;
+    
+    if (type === 'create') {
+      retryCreateEntry(payload);
+    } else if (type === 'update') {
+      handleUpdateEntry(payload).catch(() => {});
+    } else if (type === 'delete') {
+      handleDeleteEntry(entryId);
+    } else if (type === 'favorite') {
+      handleToggleFavorite(entryId, payload.isFavorite);
+    }
+  };
+
+  const retryCreateEntry = async (entry: JournalEntry) => {
+    if (!currentUser) return;
+    setIsSaving(true);
+    try {
+      await saveUserJournalEntry(currentUser.uid, entry);
+      setEntries((prev) => [entry, ...prev]);
+      setSelectedEntryId(entry.id);
+      setFailedOp(null);
+    } catch (err: any) {
+      console.error('Error creating entry in Firestore:', err);
+      setFailedOp({ type: 'create', payload: entry, entryId: entry.id, errorMessage: 'Failed to create entry. ' + err.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Create a new entry
-  const handleCreateNewEntry = async () => {
+  const handleCreateNewEntry = () => {
     if (!currentUser) return;
     const newEntry: JournalEntry = {
       id: 'entry-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
@@ -85,34 +125,26 @@ export default function App() {
       updatedAt: Date.now(),
       messages: [],
     };
-
-    setIsSaving(true);
-    try {
-      await saveUserJournalEntry(currentUser.uid, newEntry);
-      setEntries((prev) => [newEntry, ...prev]);
-      setSelectedEntryId(newEntry.id);
-    } catch (err) {
-      console.error('Error creating entry in Firestore:', err);
-    } finally {
-      setIsSaving(false);
-    }
+    retryCreateEntry(newEntry);
   };
 
   // Update entry
   const handleUpdateEntry = async (updated: JournalEntry) => {
     if (!currentUser) return;
 
-    // Update locally first
+    // Optimistic local UI update
     setEntries((prev) =>
       prev.map((e) => (e.id === updated.id ? updated : e))
     );
 
-    // Save to Firestore
     setIsSaving(true);
     try {
       await saveUserJournalEntry(currentUser.uid, updated);
-    } catch (err) {
+      setFailedOp(null);
+    } catch (err: any) {
       console.error('Error saving updated entry to Firestore:', err);
+      setFailedOp({ type: 'update', payload: updated, entryId: updated.id, errorMessage: 'Failed to save changes. ' + err.message });
+      throw err;
     } finally {
       setIsSaving(false);
     }
@@ -128,21 +160,26 @@ export default function App() {
       if (selectedEntryId === entryId) {
         setSelectedEntryId(remaining.length > 0 ? remaining[0].id : null);
       }
-    } catch (err) {
+      setFailedOp(null);
+    } catch (err: any) {
       console.error('Error deleting entry:', err);
+      setFailedOp({ type: 'delete', payload: null, entryId, errorMessage: 'Failed to delete entry. ' + err.message });
     }
   };
 
   // Toggle favorite
   const handleToggleFavorite = async (entryId: string, isFav: boolean) => {
     if (!currentUser) return;
+    // Optimistic update
     setEntries((prev) =>
       prev.map((e) => (e.id === entryId ? { ...e, isFavorite: isFav } : e))
     );
     try {
       await updateUserEntryFields(currentUser.uid, entryId, { isFavorite: isFav });
-    } catch (err) {
+      setFailedOp(null);
+    } catch (err: any) {
       console.error('Error toggling favorite in Firestore:', err);
+      setFailedOp({ type: 'favorite', payload: { isFavorite: isFav }, entryId, errorMessage: 'Failed to update favorite status. ' + err.message });
     }
   };
 
@@ -182,6 +219,16 @@ export default function App() {
         onSignOut={handleSignOut}
         isSaving={isSaving}
       />
+
+      {failedOp && (
+        <div className="px-6 py-2 bg-[#FDFCFB] shrink-0 border-b border-[#F0EDE8]">
+          <ErrorBanner 
+            message={failedOp.errorMessage} 
+            onRetry={handleRetryOp} 
+            onDismiss={() => setFailedOp(null)} 
+          />
+        </div>
+      )}
 
       {/* Main Container: Sidebar + Active Canvas */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
