@@ -10,9 +10,9 @@ DearMe is a full-stack, mindfulness-focused personal reflection and journaling a
 | :--- | :--- | :--- |
 | **Input Surfaces** | Malicious payloads, NoSQL/Firestore injection, oversized prompts | Top-level body parsing with strict schema validation, input slicing, null-safe destructuring, and payload sanitation. |
 | **Planning & Reasoning** | Prompt injection, goal hijacking, tone disruption | System prompt boundaries, instruction hardening, and temperature stabilization (0.7). |
-| **Tool Execution** | API credential exposure, SSRF, backend exhaustion | Server-side Gemini proxy (`/api/chat`, `/api/summarize`), zero client-side API key exposure. |
-| **Memory & State** | Cross-user data leakage, unauthorized reads/writes, silent write failures | Path-scoped Firestore security rules (`request.auth.uid == userId`), `sanitizeFirestorePayload` (stripping `undefined`), and strict input-to-save transaction verification with explicit user feedback and retry paths. |
-| **Inter-System Communication** | Token theft, secret leak in VCS | Google Cloud Secret Manager / env var injection for `GEMINI_API_KEY`, Federated Google OAuth. |
+| **Tool Execution** | API credential exposure, SSRF, backend exhaustion | Server-side Gemini proxy (`/api/chat`, `/api/summarize`), Google Places API proxy (`/api/places/autocomplete`), zero client-side API key exposure. |
+| **Memory & State** | Cross-user data leakage, unauthorized reads/writes, silent write failures | Path-scoped Firestore security rules (`request.auth.uid == userId`), strict RBAC checks for admins, `sanitizeFirestorePayload` (stripping `undefined`), and strict input-to-save transaction verification. |
+| **Inter-System Communication** | Token theft, secret leak in VCS, PII leak in webhooks | Google Cloud Secret Manager / env var injection for `GEMINI_API_KEY`, `GOOGLE_MAPS_API_KEY`, and `EXTERNAL_WEBHOOK_URL`. Strict PII stripping on asynchronous webhook notifications. |
 
 ---
 
@@ -41,20 +41,25 @@ gcloud services enable \
   cloudbuild.googleapis.com
 ```
 
-### 2. Configure Secret Manager for `GEMINI_API_KEY`
+### 2. Configure Secret Manager for API Keys
 
 ```bash
-# Create the secret in Secret Manager
+# Create the secrets in Secret Manager
 gcloud secrets create GEMINI_API_KEY --replication-policy="automatic"
+gcloud secrets create GOOGLE_MAPS_API_KEY --replication-policy="automatic"
+gcloud secrets create EXTERNAL_WEBHOOK_URL --replication-policy="automatic"
 
-# Inject your Gemini API Key into the secret
+# Inject your values into the secrets
 echo -n "YOUR_GEMINI_API_KEY" | gcloud secrets versions add GEMINI_API_KEY --data-file=-
+echo -n "YOUR_MAPS_API_KEY" | gcloud secrets versions add GOOGLE_MAPS_API_KEY --data-file=-
+echo -n "YOUR_WEBHOOK_URL" | gcloud secrets versions add EXTERNAL_WEBHOOK_URL --data-file=-
 
-# Grant Cloud Run Service Account permission to read the secret
+# Grant Cloud Run Service Account permission to read the secrets
 PROJECT_NUMBER=$(gcloud projects describe $(gcloud config get-value project) --format="value(projectNumber)")
 gcloud secrets add-iam-policy-binding GEMINI_API_KEY \
   --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
   --role="roles/secretmanager.secretAccessor"
+# (Repeat the binding for GOOGLE_MAPS_API_KEY and EXTERNAL_WEBHOOK_URL)
 ```
 
 ---
@@ -67,9 +72,19 @@ Deploy the following security rules in `firestore.rules` to enforce owner isolat
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // User profile doc isolation
+    
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // User profile doc
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      // User can write their own profile but cannot change their role. Admins can do anything.
+      allow write: if request.auth != null && (
+        (request.auth.uid == userId && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))) 
+        || isAdmin()
+      );
 
       // User's private journal entries
       match /entries/{entryId} {
@@ -137,6 +152,11 @@ gcloud run services update aura-reflect \
 - **Test Case 4.1 (Automatic Firestore Persistence)**: Every turn and synthesized insight updates Firestore in real-time under `/users/{uid}/entries/{id}`.
 - **Test Case 4.2 (Search & Filter)**: Use the sidebar search bar to filter reflections by keyword or toggle the **Favorites** filter.
 - **Test Case 4.3 (Deletion)**: Click the trash icon on a reflection card → confirm delete → entry is removed from Firestore and UI.
+
+### Journey 5: Advanced Integrations
+- **Test Case 5.1 (Location Pinning)**: Click the **Map Pin** icon → search for a location → observe it autocomplete via the secure backend proxy → select a location and verify it saves to the journal entry header.
+- **Test Case 5.2 (Admin Dashboard)**: Set your user's role to `'admin'` in Firestore → observe the "Admin Mode" banner appear in the app → click **View Dashboard** → verify the dashboard securely loads aggregate analytics.
+- **Test Case 5.3 (Webhook Notifications)**: Configure `EXTERNAL_WEBHOOK_URL` → click **Synthesize Insights** → verify the background process asynchronously fires the sanitized mood event to your webhook.
 
 ---
 

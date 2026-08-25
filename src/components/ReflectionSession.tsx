@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   Feather,
+  MapPin,
 } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { ErrorBanner } from './ErrorBanner';
@@ -44,6 +45,10 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
   const [showSummaryCard, setShowSummaryCard] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [locationInput, setLocationInput] = useState('');
+  const [placePredictions, setPlacePredictions] = useState<any[]>([]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -68,6 +73,38 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
       } catch (err: any) {
         setErrorMessage(err.message || 'Failed to update title.');
       }
+    }
+  };
+
+  const handleSearchLocation = async (query: string) => {
+    setLocationInput(query);
+    if (query.length < 3) {
+      setPlacePredictions([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/places/autocomplete?input=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      if (data.predictions) {
+        setPlacePredictions(data.predictions);
+      }
+    } catch (err) {
+      console.error('Failed to search locations:', err);
+    }
+  };
+
+  const handleSelectLocation = async (placeId: string, description: string) => {
+    setIsSearchingLocation(false);
+    setLocationInput('');
+    setPlacePredictions([]);
+    try {
+      await onUpdateEntry({
+        ...entry,
+        location: { placeId, description },
+        updatedAt: Date.now(),
+      });
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to update location.');
     }
   };
 
@@ -227,26 +264,77 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
             </h2>
           )}
 
-          <button
-            onClick={async () => {
-              try {
-                await onUpdateEntry({
-                  ...entry,
-                  isFavorite: !entry.isFavorite,
-                  updatedAt: Date.now(),
-                });
-              } catch (err: any) {
-                setErrorMessage(err.message || 'Failed to save favorite toggle.');
-              }
-            }}
-            className="p-1 rounded-md text-[#A8A294] hover:text-[#5A5A40] cursor-pointer"
-            title={entry.isFavorite ? 'Remove Favorite' : 'Mark as Favorite'}
-          >
-            <Star
-              className={`w-4 h-4 ${entry.isFavorite ? 'fill-[#5A5A40] text-[#5A5A40]' : ''}`}
-            />
-          </button>
+          {entry.location && (
+            <div className="flex items-center gap-1 text-xs font-sans text-[#A8A294] shrink-0 bg-[#F5F2ED] px-2 py-1 rounded-full border border-[#E6E1D6]">
+              <MapPin className="w-3 h-3 text-[#5A5A40]" />
+              <span className="truncate max-w-[150px]">{entry.location.description}</span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsSearchingLocation(!isSearchingLocation)}
+              className="p-1.5 rounded-md text-[#A8A294] hover:text-[#5A5A40] hover:bg-[#F5F2ED] cursor-pointer transition-colors"
+              title="Pin Location"
+            >
+              <MapPin className="w-4 h-4" />
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  await onUpdateEntry({
+                    ...entry,
+                    isFavorite: !entry.isFavorite,
+                    updatedAt: Date.now(),
+                  });
+                } catch (err: any) {
+                  setErrorMessage(err.message || 'Failed to save favorite toggle.');
+                }
+              }}
+              className="p-1.5 rounded-md text-[#A8A294] hover:text-[#5A5A40] hover:bg-[#F5F2ED] cursor-pointer transition-colors"
+              title={entry.isFavorite ? 'Remove Favorite' : 'Mark as Favorite'}
+            >
+              <Star
+                className={`w-4 h-4 ${entry.isFavorite ? 'fill-[#5A5A40] text-[#5A5A40]' : ''}`}
+              />
+            </button>
+          </div>
         </div>
+
+        {isSearchingLocation && (
+          <div className="absolute top-16 left-6 z-50 w-72 bg-white rounded-xl shadow-lg border border-[#F0EDE8] p-3 animate-in fade-in slide-in-from-top-2">
+            <input
+              type="text"
+              autoFocus
+              placeholder="Search places..."
+              value={locationInput}
+              onChange={(e) => handleSearchLocation(e.target.value)}
+              className="w-full text-sm font-sans text-[#5A5A40] border-b border-[#E6E1D6] bg-transparent focus:outline-none pb-2 mb-2 placeholder:text-[#A8A294]"
+            />
+            {placePredictions.length > 0 && (
+              <ul className="max-h-48 overflow-y-auto space-y-1">
+                {placePredictions.map((pred) => (
+                  <li key={pred.place_id}>
+                    <button
+                      onClick={() => handleSelectLocation(pred.place_id, pred.description)}
+                      className="w-full text-left text-xs font-sans text-[#5C564E] hover:bg-[#F5F2ED] p-2 rounded-md transition-colors truncate"
+                    >
+                      {pred.description}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex justify-end mt-2">
+              <button 
+                onClick={() => setIsSearchingLocation(false)}
+                className="text-[10px] uppercase tracking-wider font-semibold text-[#A8A294] hover:text-[#5A5A40]"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Action Controls */}
         <div className="flex items-center gap-2.5 shrink-0">

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, logout, saveUserJournalEntry, getUserJournalEntries, deleteUserJournalEntry, updateUserEntryFields } from './lib/firebase';
+import { auth, logout, fetchUserProfile, saveUserJournalEntry, getUserJournalEntries, deleteUserJournalEntry, updateUserEntryFields } from './lib/firebase';
 import type { UserProfile, JournalEntry } from './types';
 import { LandingPage } from './components/LandingPage';
 import { Navbar } from './components/Navbar';
 import { SidebarHistory } from './components/SidebarHistory';
 import { ReflectionSession } from './components/ReflectionSession';
+import { AdminDashboard } from './components/AdminDashboard';
 import { ErrorBanner } from './components/ErrorBanner';
 import { Feather, Sparkles } from 'lucide-react';
 
@@ -29,13 +30,12 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const profile: UserProfile = {
-          uid: user.uid,
-          displayName: user.displayName,
-          email: user.email,
-          photoURL: user.photoURL,
-        };
-        setCurrentUser(profile);
+        try {
+          const profile = await fetchUserProfile(user);
+          setCurrentUser(profile);
+        } catch (err) {
+          console.error('Failed to fetch profile', err);
+        }
       } else {
         setCurrentUser(null);
         setEntries([]);
@@ -208,6 +208,10 @@ export default function App() {
     return <LandingPage onSignInSuccess={() => {}} />;
   }
 
+  if (window.location.pathname === '/admin' && currentUser.isAdmin) {
+    return <AdminDashboard user={currentUser} />;
+  }
+
   const selectedEntry = entries.find((e) => e.id === selectedEntryId);
 
   return (
@@ -219,6 +223,14 @@ export default function App() {
         onSignOut={handleSignOut}
         isSaving={isSaving}
       />
+      {currentUser.isAdmin && (
+        <div className="bg-[#5A5A40] text-[#E6E1D6] px-4 py-1.5 flex items-center justify-between shrink-0 text-xs font-sans">
+          <span className="font-semibold uppercase tracking-widest">Admin Mode</span>
+          <button onClick={() => window.location.href = '/admin'} className="hover:text-white underline decoration-dotted underline-offset-4 cursor-pointer">
+            View Dashboard
+          </button>
+        </div>
+      )}
 
       {failedOp && (
         <div className="px-6 py-2 bg-[#FDFCFB] shrink-0 border-b border-[#F0EDE8]">

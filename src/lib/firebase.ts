@@ -9,6 +9,7 @@ import {
 import {
   getFirestore,
   doc,
+  getDoc,
   setDoc,
   collection,
   query,
@@ -17,7 +18,7 @@ import {
   deleteDoc,
   updateDoc,
 } from 'firebase/firestore';
-import type { JournalEntry } from '../types';
+import type { JournalEntry, UserProfile } from '../types';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Initialize Firebase
@@ -40,6 +41,27 @@ export const signInWithGoogle = async (): Promise<User> => {
 
 export const logout = async (): Promise<void> => {
   await signOut(auth);
+};
+
+export const fetchUserProfile = async (user: User): Promise<UserProfile> => {
+  const profileRef = doc(db, 'users', user.uid);
+  const snap = await getDoc(profileRef);
+  let isAdmin = false;
+  
+  if (snap.exists()) {
+    isAdmin = snap.data().role === 'admin';
+  } else {
+    // Create basic profile doc if it doesn't exist
+    await setDoc(profileRef, { email: user.email, role: 'user', createdAt: Date.now() }, { merge: true });
+  }
+
+  return {
+    uid: user.uid,
+    displayName: user.displayName,
+    email: user.email,
+    photoURL: user.photoURL,
+    isAdmin,
+  };
 };
 
 /**

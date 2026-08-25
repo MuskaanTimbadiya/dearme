@@ -3,8 +3,21 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Type } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
+import { initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 dotenv.config();
+
+// Initialize Firebase Admin (Uses GOOGLE_APPLICATION_CREDENTIALS or default service account)
+if (process.env.NODE_ENV === 'production') {
+  initializeApp();
+} else {
+  // Mock initialization for local dev if needed, or require service account key
+  try {
+    initializeApp();
+  } catch (e) {}
+}
 
 let aiClient: GoogleGenAI | null = null;
 
@@ -66,6 +79,54 @@ async function startServer() {
   // Health check
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', hasGeminiKey: !!process.env.GEMINI_API_KEY });
+  });
+
+  // Admin Stats Endpoint
+  app.get('/api/admin/stats', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      const token = authHeader.split('Bearer ')[1];
+      const decodedToken = await getAuth().verifyIdToken(token);
+      
+      const userDoc = await getFirestore().collection('users').doc(decodedToken.uid).get();
+      if (!userDoc.exists || userDoc.data()?.role !== 'admin') {
+        return res.status(403).json({ error: 'Forbidden: Admin access required' });
+      }
+
+      // Aggregate stats securely
+      const usersSnap = await getFirestore().collection('users').count().get();
+      const totalUsers = usersSnap.data().count;
+
+      res.json({ totalUsers, status: 'Active' });
+    } catch (error: any) {
+      console.error('Admin API error:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
+
+  // Google Places Autocomplete Proxy
+  app.get('/api/places/autocomplete', async (req, res) => {
+    try {
+      const { input } = req.query;
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: 'Google Maps API key not configured.' });
+      }
+      if (!input || typeof input !== 'string') {
+        return res.status(400).json({ error: 'Input query parameter is required.' });
+      }
+
+      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error('Places API error:', error);
+      res.status(500).json({ error: 'Failed to fetch places.' });
+    }
   });
 
   // Chat / Reflection Multi-turn endpoint
@@ -184,6 +245,23 @@ Return a clean JSON object with:
 
       const responseText = response.text || '{}';
       const parsed = JSON.parse(responseText);
+
+      // Async External Notification Trigger
+      if (process.env.EXTERNAL_WEBHOOK_URL) {
+        // Fire and forget (Asynchronous Execution)
+        setTimeout(() => {
+          fetch(process.env.EXTERNAL_WEBHOOK_URL as string, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'reflection_synthesized',
+              mood: parsed.mood || 'Unknown',
+              timestamp: new Date().toISOString()
+            })
+          }).catch(err => console.error('Webhook notification failed:', err));
+        }, 0);
+      }
+
       res.json(parsed);
     } catch (error: any) {
       console.error('Error in /api/summarize:', error);
