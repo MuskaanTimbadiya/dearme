@@ -8,14 +8,13 @@ import { SidebarHistory } from './components/SidebarHistory';
 import { ReflectionSession } from './components/ReflectionSession';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ErrorBanner } from './components/ErrorBanner';
-import { Feather, Sparkles } from 'lucide-react';
+import { Feather } from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
-  const [isLoadingEntries, setIsLoadingEntries] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   type FailedOperation = {
@@ -49,7 +48,6 @@ export default function App() {
 
   // Fetch entries for logged in user
   const fetchEntries = useCallback(async (userId: string) => {
-    setIsLoadingEntries(true);
     try {
       const userEntries = await getUserJournalEntries(userId);
       setEntries(userEntries);
@@ -72,8 +70,6 @@ export default function App() {
       }
     } catch (err) {
       console.error('Error fetching entries:', err);
-    } finally {
-      setIsLoadingEntries(false);
     }
   }, []);
 

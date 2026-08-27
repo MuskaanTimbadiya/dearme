@@ -22,12 +22,12 @@ import type { JournalEntry, UserProfile } from '../types';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Initialize Firebase
-export const app = initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
+const googleProvider = new GoogleAuthProvider();
 
 // If a specific databaseId was assigned, use it, otherwise default
-export const db =
+const db =
   firebaseConfig.firestoreDatabaseId &&
   firebaseConfig.firestoreDatabaseId !== '(default)'
     ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
