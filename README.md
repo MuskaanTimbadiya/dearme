@@ -19,7 +19,7 @@ DearMe is a full-stack, mindfulness-focused personal reflection and journaling a
 ## 🚀 Architecture Overview
 
 - **Frontend**: React 18, Vite, Tailwind CSS, Lucide icons, Markdown rendering.
-- **Backend API**: Express on Node.js / Cloud Run proxying Gemini AI with the resilient fallback ladder (`gemini-2.5-flash` → `gemini-2.5-flash-lite` → `gemini-flash-latest` → `gemini-2.5-pro`).
+- **Backend API**: Express on Node.js / Cloud Run proxying Gemini AI with the resilient fallback ladder (`gemini-3.6-flash` → `gemini-3.5-flash-lite` → `gemini-flash-latest` → `gemini-3.7-flash`). Note: This ladder should be kept in sync with `server.ts` going forward.
 - **Authentication**: Firebase Authentication (Federated Google Sign-In).
 - **Database**: Google Cloud Firestore with owner-isolated security rules (`/users/{userId}/entries/{entryId}`).
 
@@ -30,6 +30,23 @@ DearMe is a full-stack, mindfulness-focused personal reflection and journaling a
 1. **Google Cloud SDK (`gcloud`)**: Installed and authenticated.
 2. **Node.js**: v18 or higher.
 3. **Google Cloud Project**: With billing enabled.
+
+### Local Development
+
+1. Create a `.env` file from the example and fill in your keys:
+   ```bash
+   cp .env.example .env
+   ```
+   Fill in `GEMINI_API_KEY` (and optionally `GOOGLE_MAPS_API_KEY`, `EXTERNAL_WEBHOOK_URL`).
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the local development server:
+   ```bash
+   npm run dev
+   ```
+*Note: `firebase-applet-config.json` already contains the public Firebase web config, so no additional Firebase setup is needed for local development against the existing project.*
 
 ### 1. Enable Required Cloud APIs
 

@@ -35,7 +35,7 @@ function getAI(): GoogleGenAI {
 // Resilient Model Fallback Ladder
 const MODEL_FALLBACK_LADDER = [
   'gemini-3.6-flash',
-  'gemini-3.1-flash-lite',
+  'gemini-3.5-flash-lite',
   'gemini-flash-latest',
   'gemini-3.7-flash',
 ];
@@ -76,6 +76,23 @@ async function startServer() {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
 
+  // Auth Middleware for protected routes
+  const requireAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+      }
+      const token = authHeader.split('Bearer ')[1];
+      const decodedToken = await getAuth().verifyIdToken(token);
+      (req as any).user = decodedToken;
+      next();
+    } catch (error) {
+      console.error('Auth verification error:', error);
+      res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    }
+  };
+
   // Health check
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', hasGeminiKey: !!process.env.GEMINI_API_KEY });
@@ -108,7 +125,7 @@ async function startServer() {
   });
 
   // Google Places Autocomplete Proxy
-  app.get('/api/places/autocomplete', async (req, res) => {
+  app.get('/api/places/autocomplete', requireAuth, async (req, res) => {
     try {
       const { input } = req.query;
       const apiKey = process.env.GOOGLE_MAPS_API_KEY;
@@ -130,7 +147,7 @@ async function startServer() {
   });
 
   // Chat / Reflection Multi-turn endpoint
-  app.post('/api/chat', async (req, res) => {
+  app.post('/api/chat', requireAuth, async (req, res) => {
     try {
       // 2. Defensive Payload Ingestion (Null-Safe Destructuring)
       const body = req.body && typeof req.body === 'object' ? req.body : {};
@@ -192,7 +209,7 @@ Tone and style:
   });
 
   // Summarize / Generate Title and Insights endpoint
-  app.post('/api/summarize', async (req, res) => {
+  app.post('/api/summarize', requireAuth, async (req, res) => {
     try {
       const body = req.body && typeof req.body === 'object' ? req.body : {};
       const { messages, text } = body;

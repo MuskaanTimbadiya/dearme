@@ -13,6 +13,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import Markdown from 'react-markdown';
+import { auth } from '../lib/firebase';
 import { ErrorBanner } from './ErrorBanner';
 import type { JournalEntry, JournalMessage, ReflectionMode } from '../types';
 
@@ -83,7 +84,12 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
       return;
     }
     try {
-      const res = await fetch(`/api/places/autocomplete?input=${encodeURIComponent(query)}`);
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/places/autocomplete?input=${encodeURIComponent(query)}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await res.json();
       if (data.predictions) {
         setPlacePredictions(data.predictions);
@@ -143,9 +149,13 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
       setInputText('');
 
       // Call server-side /api/chat with full history
+      const token = await auth.currentUser?.getIdToken();
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           messages: newMessages.map((m) => ({
             role: m.role,
@@ -193,9 +203,13 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
     setErrorMessage(null);
 
     try {
+      const token = await auth.currentUser?.getIdToken();
       const response = await fetch('/api/summarize', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           messages: entry.messages.map((m) => ({
             role: m.role,
