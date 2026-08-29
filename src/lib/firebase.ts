@@ -34,9 +34,25 @@ const db =
     : getFirestore(app);
 
 // Auth Helpers
-export const signInWithGoogle = async (): Promise<User> => {
-  const result = await signInWithPopup(auth, googleProvider);
-  return result.user;
+export const signInWithGoogle = async (): Promise<User | null> => {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return result.user;
+  } catch (error: any) {
+    if (
+      error?.code === 'auth/popup-closed-by-user' ||
+      error?.code === 'auth/cancelled-popup-request'
+    ) {
+      console.info('Google sign-in popup was closed by the user.');
+      return null;
+    }
+    if (error?.code === 'auth/popup-blocked') {
+      console.warn('Google sign-in popup was blocked by the browser.');
+      throw new Error('Sign-in popup was blocked by your browser. Please allow popups for this window and try again.');
+    }
+    console.error('Firebase Auth sign in error:', error?.message || error);
+    throw error;
+  }
 };
 
 export const logout = async (): Promise<void> => {
@@ -45,23 +61,44 @@ export const logout = async (): Promise<void> => {
 
 export const fetchUserProfile = async (user: User): Promise<UserProfile> => {
   const profileRef = doc(db, 'users', user.uid);
-  const snap = await getDoc(profileRef);
-  let isAdmin = false;
-  
-  if (snap.exists()) {
-    isAdmin = snap.data().role === 'admin';
-  } else {
-    // Create basic profile doc if it doesn't exist
-    await setDoc(profileRef, { email: user.email, role: 'user', createdAt: Date.now() }, { merge: true });
-  }
+  try {
+    const snap = await getDoc(profileRef);
+    let isAdmin = user.email === 'muskaantimbadiya98@gmail.com';
 
-  return {
-    uid: user.uid,
-    displayName: user.displayName,
-    email: user.email,
-    photoURL: user.photoURL,
-    isAdmin,
-  };
+    if (snap.exists()) {
+      if (snap.data().role === 'admin') {
+        isAdmin = true;
+      }
+    } else {
+      // Create basic profile doc if it doesn't exist
+      await setDoc(
+        profileRef,
+        {
+          email: user.email,
+          role: isAdmin ? 'admin' : 'user',
+          createdAt: Date.now(),
+        },
+        { merge: true }
+      );
+    }
+
+    return {
+      uid: user.uid,
+      displayName: user.displayName,
+      email: user.email,
+      photoURL: user.photoURL,
+      isAdmin,
+    };
+  } catch (err: any) {
+    console.warn('Profile fetch notice:', err?.message || err);
+    return {
+      uid: user.uid,
+      displayName: user.displayName,
+      email: user.email,
+      photoURL: user.photoURL,
+      isAdmin: user.email === 'muskaantimbadiya98@gmail.com',
+    };
+  }
 };
 
 /**

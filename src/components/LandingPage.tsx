@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, Shield, Lock, Compass, ArrowRight, Brain, Feather } from 'lucide-react';
 import { signInWithGoogle } from '../lib/firebase';
+import { sanitizeUserFacingError } from '../lib/errorUtils';
 
 interface LandingPageProps {
   onSignInSuccess: () => void;
@@ -14,14 +15,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignInSuccess }) => 
     try {
       setIsLoading(true);
       setErrorMessage(null);
-      await signInWithGoogle();
-      onSignInSuccess();
+      const user = await signInWithGoogle();
+      if (user) {
+        onSignInSuccess();
+      }
     } catch (err: any) {
-      console.error('Sign in error:', err);
+      if (
+        err?.code === 'auth/popup-closed-by-user' ||
+        err?.code === 'auth/cancelled-popup-request'
+      ) {
+        // Normal user cancellation - do not treat as an error
+        return;
+      }
       setErrorMessage(
-        err.code === 'auth/popup-closed-by-user'
-          ? 'Sign-in window was closed. Please try again.'
-          : err.message || 'Failed to authenticate. Please check your connection.'
+        sanitizeUserFacingError(err, 'Failed to authenticate. Please check your network connection and try again.')
       );
     } finally {
       setIsLoading(false);
