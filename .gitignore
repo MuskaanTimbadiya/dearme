@@ -8,3 +8,10 @@ coverage/
 !.env.example
 .agents
 .aistudio
+
+# Secret & Credential files
+*.pem
+*.key
+*service-account*.json
+secrets*.json
+private_key*

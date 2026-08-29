@@ -8,6 +8,7 @@ import { SidebarHistory } from './components/SidebarHistory';
 import { ReflectionSession } from './components/ReflectionSession';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ErrorBanner } from './components/ErrorBanner';
+import { sanitizeUserFacingError } from './lib/errorUtils';
 import { Feather } from 'lucide-react';
 
 export default function App() {
@@ -54,7 +55,6 @@ export default function App() {
       if (userEntries.length > 0) {
         setSelectedEntryId((prev) => prev && userEntries.some((e) => e.id === prev) ? prev : userEntries[0].id);
       } else {
-        // Create initial welcoming reflection session
         const initialEntry: JournalEntry = {
           id: 'entry-' + Date.now(),
           userId,
@@ -103,8 +103,8 @@ export default function App() {
       setSelectedEntryId(entry.id);
       setFailedOp(null);
     } catch (err: any) {
-      console.error('Error creating entry in Firestore:', err);
-      setFailedOp({ type: 'create', payload: entry, entryId: entry.id, errorMessage: 'Failed to create entry. ' + err.message });
+      const sanitized = sanitizeUserFacingError(err, 'Failed to create reflection entry. Please try again.');
+      setFailedOp({ type: 'create', payload: entry, entryId: entry.id, errorMessage: sanitized });
     } finally {
       setIsSaving(false);
     }
@@ -128,7 +128,6 @@ export default function App() {
   const handleUpdateEntry = async (updated: JournalEntry) => {
     if (!currentUser) return;
 
-    // Optimistic local UI update
     setEntries((prev) =>
       prev.map((e) => (e.id === updated.id ? updated : e))
     );
@@ -138,8 +137,8 @@ export default function App() {
       await saveUserJournalEntry(currentUser.uid, updated);
       setFailedOp(null);
     } catch (err: any) {
-      console.error('Error saving updated entry to Firestore:', err);
-      setFailedOp({ type: 'update', payload: updated, entryId: updated.id, errorMessage: 'Failed to save changes. ' + err.message });
+      const sanitized = sanitizeUserFacingError(err, 'Failed to save reflection changes. Please try again.');
+      setFailedOp({ type: 'update', payload: updated, entryId: updated.id, errorMessage: sanitized });
       throw err;
     } finally {
       setIsSaving(false);
@@ -158,15 +157,14 @@ export default function App() {
       }
       setFailedOp(null);
     } catch (err: any) {
-      console.error('Error deleting entry:', err);
-      setFailedOp({ type: 'delete', payload: null, entryId, errorMessage: 'Failed to delete entry. ' + err.message });
+      const sanitized = sanitizeUserFacingError(err, 'Failed to delete reflection entry. Please try again.');
+      setFailedOp({ type: 'delete', payload: null, entryId, errorMessage: sanitized });
     }
   };
 
   // Toggle favorite
   const handleToggleFavorite = async (entryId: string, isFav: boolean) => {
     if (!currentUser) return;
-    // Optimistic update
     setEntries((prev) =>
       prev.map((e) => (e.id === entryId ? { ...e, isFavorite: isFav } : e))
     );
@@ -174,8 +172,8 @@ export default function App() {
       await updateUserEntryFields(currentUser.uid, entryId, { isFavorite: isFav });
       setFailedOp(null);
     } catch (err: any) {
-      console.error('Error toggling favorite in Firestore:', err);
-      setFailedOp({ type: 'favorite', payload: { isFavorite: isFav }, entryId, errorMessage: 'Failed to update favorite status. ' + err.message });
+      const sanitized = sanitizeUserFacingError(err, 'Failed to update favorite status. Please try again.');
+      setFailedOp({ type: 'favorite', payload: { isFavorite: isFav }, entryId, errorMessage: sanitized });
     }
   };
 

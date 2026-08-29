@@ -3,7 +3,7 @@
 # 🌿 DearMe - Mindful Intelligence & Reflection Space
 
 <p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Cormorant+Garamond font-weight=600&size=24&pause=1000&color=5A5A40&center=true&vCenter=true&width=600&lines=Your+Private+AI-Powered+Reflection+Journal;Voice+Notes%2C+Photo+Attachments+%26+Speech-To-Text;Tailored+Typography+%26+Ambient+Paper+Themes;Owner-Isolated+Firestore+%26+Resilient+Gemini+AI" alt="Typing SVG" />
+  <img src="https://readme-typing-svg.demolab.com?font=Cormorant+Garamond&weight=600&size=24&pause=1000&color=5A5A40&center=true&vCenter=true&width=600&lines=Your+Private+AI-Powered+Reflection+Journal;Voice+Notes%2C+Photo+Attachments+%26+Speech-To-Text;Tailored+Typography+%26+Ambient+Paper+Themes;Owner-Isolated+Firestore+%26+Resilient+Gemini+AI" alt="Typing SVG" />
 </p>
 
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)

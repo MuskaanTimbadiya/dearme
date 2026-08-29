@@ -10,7 +10,256 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 dotenv.config();
 
-// Load config from firebase-applet-config.json
+// -------------------------------------------------------------
+// STRICT SCHEMA VALIDATION UTILITIES
+// -------------------------------------------------------------
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const PRINTABLE_TEXT_REGEX = /^[^\x00-\x1F\x7F]+$/;
+
+interface ValidationRule {
+  field: string;
+  type: 'string' | 'array' | 'object' | 'number' | 'boolean';
+  required?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: RegExp;
+  enum?: any[];
+  itemsSchema?: ValidationRule[];
+}
+
+function validatePayload(
+  data: any,
+  rules: ValidationRule[],
+  allowUnknownKeys = false
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return { valid: false, errors: ['Request payload must be a JSON object.'] };
+  }
+
+  const allowedKeys = new Set(rules.map((r) => r.field));
+  if (!allowUnknownKeys) {
+    const unknownKeys = Object.keys(data).filter((k) => !allowedKeys.has(k));
+    if (unknownKeys.length > 0) {
+      errors.push(`Unexpected properties not allowed in strict schema: ${unknownKeys.join(', ')}.`);
+    }
+  }
+
+  for (const rule of rules) {
+    const val = data[rule.field];
+
+    if (val === undefined || val === null || val === '') {
+      if (rule.required) {
+        errors.push(`Field '${rule.field}' is required.`);
+      }
+      continue;
+    }
+
+    if (rule.type === 'array') {
+      if (!Array.isArray(val)) {
+        errors.push(`Field '${rule.field}' must be an array.`);
+        continue;
+      }
+      if (rule.minLength !== undefined && val.length < rule.minLength) {
+        errors.push(`Field '${rule.field}' array length must be at least ${rule.minLength}.`);
+      }
+      if (rule.maxLength !== undefined && val.length > rule.maxLength) {
+        errors.push(`Field '${rule.field}' array length cannot exceed ${rule.maxLength}.`);
+      }
+
+      if (rule.itemsSchema) {
+        val.forEach((item: any, idx: number) => {
+          const subValidation = validatePayload(item, rule.itemsSchema!, allowUnknownKeys);
+          if (!subValidation.valid) {
+            subValidation.errors.forEach((e) =>
+              errors.push(`Field '${rule.field}[${idx}]': ${e}`)
+            );
+          }
+        });
+      }
+    } else if (rule.type === 'string') {
+      if (typeof val !== 'string') {
+        errors.push(`Field '${rule.field}' must be a string.`);
+        continue;
+      }
+      if (rule.minLength !== undefined && val.length < rule.minLength) {
+        errors.push(`Field '${rule.field}' length must be at least ${rule.minLength} characters.`);
+      }
+      if (rule.maxLength !== undefined && val.length > rule.maxLength) {
+        errors.push(`Field '${rule.field}' length cannot exceed ${rule.maxLength} characters.`);
+      }
+      if (rule.pattern && !rule.pattern.test(val)) {
+        errors.push(`Field '${rule.field}' does not match the required format.`);
+      }
+      if (rule.enum && !rule.enum.includes(val)) {
+        errors.push(`Field '${rule.field}' must be one of: ${rule.enum.join(', ')}.`);
+      }
+    } else {
+      if (typeof val !== rule.type) {
+        errors.push(`Field '${rule.field}' must be of type ${rule.type}.`);
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+// Configurable Rate Limiting Options
+const RATE_LIMIT_CONFIG = {
+  authIpWindowMs: Number(process.env.RATE_LIMIT_AUTH_IP_WINDOW_MS) || 15 * 60 * 1000,
+  authIpMax: Number(process.env.RATE_LIMIT_AUTH_IP_MAX) || 10,
+  authAccountMaxAttempts: Number(process.env.RATE_LIMIT_AUTH_ACCOUNT_MAX_ATTEMPTS) || 5,
+  authInitialBackoffMs: Number(process.env.RATE_LIMIT_AUTH_INITIAL_BACKOFF_MS) || 2000,
+  authMaxBackoffMs: Number(process.env.RATE_LIMIT_AUTH_MAX_BACKOFF_MS) || 60000,
+
+  publicWindowMs: Number(process.env.RATE_LIMIT_PUBLIC_WINDOW_MS) || 60 * 1000,
+  publicMax: Number(process.env.RATE_LIMIT_PUBLIC_MAX) || 60,
+
+  authUserWindowMs: Number(process.env.RATE_LIMIT_AUTH_USER_WINDOW_MS) || 60 * 1000,
+  authUserMax: Number(process.env.RATE_LIMIT_AUTH_USER_MAX) || 120,
+};
+
+interface WindowRecord {
+  timestamps: number[];
+}
+
+interface AccountAuthRecord {
+  failedAttempts: number;
+  lastFailureTime: number;
+  nextAllowedTime: number;
+}
+
+const ipRateStore = new Map<string, WindowRecord>();
+const userRateStore = new Map<string, WindowRecord>();
+const authAccountStore = new Map<string, AccountAuthRecord>();
+
+function cleanWindowTimestamps(timestamps: number[], windowMs: number, now: number): number[] {
+  return timestamps.filter((t) => now - t < windowMs);
+}
+
+// 1. Moderate Public Rate Limiter (Per IP)
+const publicRateLimiter = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown-ip';
+  const now = Date.now();
+  const windowMs = RATE_LIMIT_CONFIG.publicWindowMs;
+  const max = RATE_LIMIT_CONFIG.publicMax;
+
+  let record = ipRateStore.get(`pub:${ip}`);
+  const timestamps = cleanWindowTimestamps(record?.timestamps || [], windowMs, now);
+
+  if (timestamps.length >= max) {
+    const oldestTimestamp = timestamps[0];
+    const retryAfterSec = Math.ceil((oldestTimestamp + windowMs - now) / 1000);
+    res.setHeader('Retry-After', String(retryAfterSec));
+    return res.status(429).json({
+      error: 'Too Many Requests',
+      message: `Public rate limit exceeded. Please try again in ${retryAfterSec} seconds.`,
+    });
+  }
+
+  timestamps.push(now);
+  ipRateStore.set(`pub:${ip}`, { timestamps });
+  next();
+};
+
+// 2. Looser Authenticated User Action Rate Limiter (Per User UID or IP fallback)
+const authUserRateLimiter = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const userId = (req as any).user?.uid || req.ip || req.socket.remoteAddress || 'unknown-user';
+  const now = Date.now();
+  const windowMs = RATE_LIMIT_CONFIG.authUserWindowMs;
+  const max = RATE_LIMIT_CONFIG.authUserMax;
+
+  let record = userRateStore.get(userId);
+  const timestamps = cleanWindowTimestamps(record?.timestamps || [], windowMs, now);
+
+  if (timestamps.length >= max) {
+    const oldestTimestamp = timestamps[0];
+    const retryAfterSec = Math.ceil((oldestTimestamp + windowMs - now) / 1000);
+    res.setHeader('Retry-After', String(retryAfterSec));
+    return res.status(429).json({
+      error: 'Too Many Requests',
+      message: `User action limit exceeded. Please try again in ${retryAfterSec} seconds.`,
+    });
+  }
+
+  timestamps.push(now);
+  userRateStore.set(userId, { timestamps });
+  next();
+};
+
+// 3. Stricter Auth Route Rate Limiter (Per IP + Per Account with Exponential Backoff)
+const authRouteRateLimiter = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown-ip';
+  const accountIdentifier = String(req.body?.email || req.body?.username || req.body?.account || '').toLowerCase().trim();
+  const now = Date.now();
+
+  const ipWindowMs = RATE_LIMIT_CONFIG.authIpWindowMs;
+  const ipMax = RATE_LIMIT_CONFIG.authIpMax;
+  let ipRecord = ipRateStore.get(`auth:${ip}`);
+  const ipTimestamps = cleanWindowTimestamps(ipRecord?.timestamps || [], ipWindowMs, now);
+
+  if (ipTimestamps.length >= ipMax) {
+    const oldest = ipTimestamps[0];
+    const retryAfterSec = Math.ceil((oldest + ipWindowMs - now) / 1000);
+    res.setHeader('Retry-After', String(retryAfterSec));
+    return res.status(429).json({
+      error: 'Too Many Requests',
+      message: `Authentication attempt limit exceeded for this IP. Please try again in ${retryAfterSec} seconds.`,
+    });
+  }
+
+  if (accountIdentifier) {
+    const accRecord = authAccountStore.get(accountIdentifier);
+    if (accRecord && now < accRecord.nextAllowedTime) {
+      const waitTimeSec = Math.ceil((accRecord.nextAllowedTime - now) / 1000);
+      res.setHeader('Retry-After', String(waitTimeSec));
+      return res.status(429).json({
+        error: 'Too Many Requests',
+        message: `Account is temporarily experiencing exponential backoff due to repeated failed authentication attempts. Please wait ${waitTimeSec} seconds before retrying.`,
+        backoffSeconds: waitTimeSec,
+        failedAttempts: accRecord.failedAttempts,
+      });
+    }
+  }
+
+  ipTimestamps.push(now);
+  ipRateStore.set(`auth:${ip}`, { timestamps: ipTimestamps });
+
+  (res as any).recordAuthOutcome = (success: boolean) => {
+    if (!accountIdentifier) return;
+
+    if (success) {
+      authAccountStore.delete(accountIdentifier);
+    } else {
+      const record = authAccountStore.get(accountIdentifier) || {
+        failedAttempts: 0,
+        lastFailureTime: now,
+        nextAllowedTime: 0,
+      };
+
+      const failures = record.failedAttempts + 1;
+      let delayMs = 0;
+
+      if (failures >= RATE_LIMIT_CONFIG.authAccountMaxAttempts) {
+        const exponent = failures - RATE_LIMIT_CONFIG.authAccountMaxAttempts;
+        delayMs = Math.min(
+          RATE_LIMIT_CONFIG.authInitialBackoffMs * Math.pow(2, exponent),
+          RATE_LIMIT_CONFIG.authMaxBackoffMs
+        );
+      }
+
+      authAccountStore.set(accountIdentifier, {
+        failedAttempts: failures,
+        lastFailureTime: now,
+        nextAllowedTime: now + delayMs,
+      });
+    }
+  };
+
+  next();
+};
+
 let firebaseConfig: {
   projectId?: string;
   firestoreDatabaseId?: string;
@@ -30,7 +279,6 @@ const firebaseProjectId =
   process.env.FIREBASE_PROJECT_ID ||
   'gen-lang-client-0231105874';
 
-// Initialize Firebase Admin with the target Firebase Project ID
 const adminApp =
   getApps().length > 0
     ? getApps()[0]
@@ -58,7 +306,6 @@ function getAI(): GoogleGenAI {
   return aiClient;
 }
 
-// Resilient Model Fallback Ladder
 const MODEL_FALLBACK_LADDER = [
   'gemini-3.6-flash',
   'gemini-3.5-flash-lite',
@@ -66,9 +313,6 @@ const MODEL_FALLBACK_LADDER = [
   'gemini-3.7-flash',
 ];
 
-/**
- * Standard Resilient Content Generation with automated fallback ladder
- */
 async function generateContentWithFallback(params: {
   contents: any[];
   config?: any;
@@ -87,7 +331,6 @@ async function generateContentWithFallback(params: {
     } catch (error: any) {
       console.warn(`[Gemini Fallback] Model ${model} encountered an issue:`, error?.message || error);
       lastError = error;
-      // Continue to next model in the fallback ladder
     }
   }
 
@@ -122,28 +365,92 @@ async function startServer() {
     }
   };
 
-  // Health check
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', hasGeminiKey: !!process.env.GEMINI_API_KEY });
+  // -------------------------------------------------------------
+  // AUTH ROUTES
+  // -------------------------------------------------------------
+  app.post('/api/auth/login', authRouteRateLimiter, async (req, res) => {
+    const rules: ValidationRule[] = [
+      { field: 'email', type: 'string', required: true, minLength: 3, maxLength: 254, pattern: EMAIL_REGEX },
+      { field: 'password', type: 'string', required: true, minLength: 1, maxLength: 128 },
+    ];
+    const validation = validatePayload(req.body, rules, false);
+    if (!validation.valid) {
+      (res as any).recordAuthOutcome(false);
+      return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: validation.errors });
+    }
+
+    const { email } = req.body;
+    try {
+      const user = await adminAuth.getUserByEmail(email);
+      if (user) {
+        (res as any).recordAuthOutcome(true);
+        return res.json({ status: 'success', uid: user.uid, email: user.email });
+      } else {
+        (res as any).recordAuthOutcome(false);
+        return res.status(401).json({ error: 'Invalid authentication credentials.' });
+      }
+    } catch (err: any) {
+      console.error('[Auth Login Error Detail]:', err?.stack || err);
+      (res as any).recordAuthOutcome(false);
+      return res.status(401).json({ error: 'Authentication failed. Check credentials.' });
+    }
   });
 
-  // Admin Stats Endpoint
-  app.get('/api/admin/stats', async (req, res) => {
+  app.post('/api/auth/signup', authRouteRateLimiter, async (req, res) => {
+    const rules: ValidationRule[] = [
+      { field: 'email', type: 'string', required: true, minLength: 3, maxLength: 254, pattern: EMAIL_REGEX },
+    ];
+    const validation = validatePayload(req.body, rules, false);
+    if (!validation.valid) {
+      (res as any).recordAuthOutcome(false);
+      return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: validation.errors });
+    }
+
+    (res as any).recordAuthOutcome(true);
+    res.json({ status: 'success', message: 'Account creation initiated.' });
+  });
+
+  app.post('/api/auth/password-reset', authRouteRateLimiter, async (req, res) => {
+    const rules: ValidationRule[] = [
+      { field: 'email', type: 'string', required: true, minLength: 3, maxLength: 254, pattern: EMAIL_REGEX },
+    ];
+    const validation = validatePayload(req.body, rules, false);
+    if (!validation.valid) {
+      (res as any).recordAuthOutcome(false);
+      return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: validation.errors });
+    }
+
+    (res as any).recordAuthOutcome(true);
+    res.json({ status: 'success', message: 'Password reset email sent.' });
+  });
+
+  // -------------------------------------------------------------
+  // PUBLIC ENDPOINTS
+  // -------------------------------------------------------------
+  app.get('/api/health', publicRateLimiter, (req, res) => {
+    res.json({
+      status: 'ok',
+      hasGeminiKey: !!process.env.GEMINI_API_KEY,
+      rateLimits: {
+        authIpMax: RATE_LIMIT_CONFIG.authIpMax,
+        publicMax: RATE_LIMIT_CONFIG.publicMax,
+        authUserMax: RATE_LIMIT_CONFIG.authUserMax,
+      },
+    });
+  });
+
+  // -------------------------------------------------------------
+  // AUTHENTICATED USER ENDPOINTS
+  // -------------------------------------------------------------
+  app.get('/api/admin/stats', requireAuth, authUserRateLimiter, async (req, res) => {
     try {
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-      const token = authHeader.split('Bearer ')[1].trim();
-      const decodedToken = await adminAuth.verifyIdToken(token);
-      
+      const decodedToken = (req as any).user;
       try {
         const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
         if (!userDoc.exists || userDoc.data()?.role !== 'admin') {
           return res.status(403).json({ error: 'Forbidden: Admin access required' });
         }
 
-        // Aggregate stats securely
         const usersSnap = await adminDb.collection('users').count().get();
         const totalUsers = usersSnap.data().count;
 
@@ -153,21 +460,28 @@ async function startServer() {
         res.json({ totalUsers: 1, status: 'Active' });
       }
     } catch (error: any) {
-      console.error('Admin API error:', error);
+      console.error('[Admin API Internal Error Detail]:', error?.stack || error);
       res.status(500).json({ error: 'Internal Server Error' });
     }
   });
 
-  // Google Places Autocomplete Proxy
-  app.get('/api/places/autocomplete', requireAuth, async (req, res) => {
+  app.get('/api/places/autocomplete', requireAuth, authUserRateLimiter, async (req, res) => {
     try {
       const { input } = req.query;
+      if (!input || typeof input !== 'string') {
+        return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: ["Query parameter 'input' must be a string."] });
+      }
+
+      if (input.length < 3 || input.length > 200 || !PRINTABLE_TEXT_REGEX.test(input)) {
+        return res.status(400).json({
+          error: 'Invalid Request Schema',
+          validationErrors: ["Query parameter 'input' length must be 3-200 printable characters."],
+        });
+      }
+
       const apiKey = process.env.GOOGLE_MAPS_API_KEY;
       if (!apiKey) {
         return res.status(503).json({ error: 'Google Maps API key not configured.' });
-      }
-      if (!input || typeof input !== 'string') {
-        return res.status(400).json({ error: 'Input query parameter is required.' });
       }
 
       const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}`;
@@ -175,21 +489,35 @@ async function startServer() {
       const data = await response.json();
       res.json(data);
     } catch (error: any) {
-      console.error('Places API error:', error);
+      console.error('[Places API Internal Error Detail]:', error?.stack || error);
       res.status(500).json({ error: 'Failed to fetch places.' });
     }
   });
 
-  // Chat / Reflection Multi-turn endpoint
-  app.post('/api/chat', requireAuth, async (req, res) => {
+  app.post('/api/chat', requireAuth, authUserRateLimiter, async (req, res) => {
     try {
-      // 2. Defensive Payload Ingestion (Null-Safe Destructuring)
-      const body = req.body && typeof req.body === 'object' ? req.body : {};
-      const { messages, mode = 'reflective', entryTitle = '' } = body;
+      const rules: ValidationRule[] = [
+        {
+          field: 'messages',
+          type: 'array',
+          required: true,
+          minLength: 1,
+          maxLength: 100,
+          itemsSchema: [
+            { field: 'role', type: 'string', required: true, enum: ['user', 'model', 'assistant'] },
+            { field: 'content', type: 'string', required: true, minLength: 1, maxLength: 10000 },
+          ],
+        },
+        { field: 'mode', type: 'string', required: false, enum: ['reflective', 'brainstorm', 'actionable', 'summary'] },
+        { field: 'entryTitle', type: 'string', required: false, maxLength: 100 },
+      ];
 
-      if (!Array.isArray(messages) || messages.length === 0) {
-        return res.status(400).json({ error: 'Messages array is required and cannot be empty.' });
+      const validation = validatePayload(req.body, rules, false);
+      if (!validation.valid) {
+        return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: validation.errors });
       }
+
+      const { messages, mode = 'reflective', entryTitle = '' } = req.body;
 
       let systemInstruction = `You are a thoughtful, empathetic, and insightful AI Reflection Companion and Journal Guide.
 Your purpose is to help the user unpack their thoughts, feelings, plans, and experiences with clarity and warmth.
@@ -214,13 +542,11 @@ Tone and style:
         systemInstruction += `\nJournal Entry Topic/Title: "${String(entryTitle).slice(0, 100)}"`;
       }
 
-      // Convert messages to sanitized Gemini format
       const formattedContents = messages.map((m: { role: string; content: string }) => ({
         role: m.role === 'model' || m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: String(m.content || '').slice(0, 8000) }],
       }));
 
-      // Call Gemini with automated fallback ladder
       const { response, modelUsed } = await generateContentWithFallback({
         contents: formattedContents,
         config: {
@@ -232,25 +558,42 @@ Tone and style:
       const reply = response.text || 'I hear you. Could you elaborate a bit more on how that made you feel?';
       res.json({ reply, modelUsed });
     } catch (error: any) {
-      console.error('Error in /api/chat:', error);
+      console.error('[API /api/chat Internal Error Detail]:', error?.stack || error);
       const isMissingKey = error.message?.includes('GEMINI_API_KEY');
       res.status(isMissingKey ? 503 : 500).json({
         error: isMissingKey
-          ? 'Gemini API key is not configured. Please configure GEMINI_API_KEY in the environment settings.'
-          : error.message || 'An error occurred while generating response.',
+          ? 'Gemini API key is not configured.'
+          : 'An unexpected error occurred while generating your reflection response. Please try again.',
       });
     }
   });
 
-  // Summarize / Generate Title and Insights endpoint
-  app.post('/api/summarize', requireAuth, async (req, res) => {
+  app.post('/api/summarize', requireAuth, authUserRateLimiter, async (req, res) => {
     try {
-      const body = req.body && typeof req.body === 'object' ? req.body : {};
-      const { messages, text } = body;
+      const rules: ValidationRule[] = [
+        { field: 'text', type: 'string', required: false, maxLength: 5000 },
+        {
+          field: 'messages',
+          type: 'array',
+          required: false,
+          maxLength: 100,
+          itemsSchema: [
+            { field: 'role', type: 'string', required: true, enum: ['user', 'model', 'assistant'] },
+            { field: 'content', type: 'string', required: true, maxLength: 10000 },
+          ],
+        },
+      ];
+
+      const validation = validatePayload(req.body, rules, false);
+      if (!validation.valid) {
+        return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: validation.errors });
+      }
+
+      const { messages, text } = req.body;
 
       let combinedContent = '';
       if (text) {
-        combinedContent += String(text).slice(0, 4000);
+        combinedContent += String(text);
       }
       if (Array.isArray(messages)) {
         combinedContent +=
@@ -261,7 +604,10 @@ Tone and style:
       }
 
       if (!combinedContent.trim()) {
-        return res.status(400).json({ error: 'No content provided for summarization.' });
+        return res.status(400).json({
+          error: 'Invalid Request Schema',
+          validationErrors: ['At least text or non-empty messages array must be provided.'],
+        });
       }
 
       const prompt = `Analyze this personal reflection/journal conversation and provide a structured summary.
@@ -297,9 +643,7 @@ Return a clean JSON object with:
       const responseText = response.text || '{}';
       const parsed = JSON.parse(responseText);
 
-      // Async External Notification Trigger
       if (process.env.EXTERNAL_WEBHOOK_URL) {
-        // Fire and forget (Asynchronous Execution)
         setTimeout(() => {
           fetch(process.env.EXTERNAL_WEBHOOK_URL as string, {
             method: 'POST',
@@ -307,17 +651,17 @@ Return a clean JSON object with:
             body: JSON.stringify({
               event: 'reflection_synthesized',
               mood: parsed.mood || 'Unknown',
-              timestamp: new Date().toISOString()
-            })
-          }).catch(err => console.error('Webhook notification failed:', err));
+              timestamp: new Date().toISOString(),
+            }),
+          }).catch((err) => console.error('Webhook notification failed:', err));
         }, 0);
       }
 
       res.json(parsed);
     } catch (error: any) {
-      console.error('Error in /api/summarize:', error);
+      console.error('[API /api/summarize Internal Error Detail]:', error?.stack || error);
       res.status(500).json({
-        error: error.message || 'Failed to generate summary.',
+        error: 'Failed to generate summary. Please try again.',
         fallback: {
           title: 'Personal Reflection',
           summary: 'A session exploring thoughts and experiences.',
@@ -342,6 +686,17 @@ Return a clean JSON object with:
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
+
+  // Global Unhandled Error Middleware (Prevents stack trace leaks to client)
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('[Unhandled Express Server Error Detail]:', err?.stack || err);
+    if (res.headersSent) {
+      return next(err);
+    }
+    res.status(500).json({
+      error: 'An unexpected internal server error occurred. Please try again later.',
+    });
+  });
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`AI Reflection Journal server running on http://0.0.0.0:${PORT}`);

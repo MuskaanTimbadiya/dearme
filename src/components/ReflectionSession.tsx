@@ -21,13 +21,14 @@ import {
   Pause,
   Maximize2,
   Smile,
-  Heart,
 } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { auth } from '../lib/firebase';
 import { ErrorBanner } from './ErrorBanner';
 import { VoiceRecorderModal } from './VoiceRecorderModal';
 import { EmojiPickerPopover } from './EmojiPickerPopover';
+import { sanitizeUserFacingError } from '../lib/errorUtils';
+import { validateImageUpload } from '../lib/fileValidation';
 import type { JournalEntry, JournalMessage, ReflectionMode, JournalFontFamily, JournalTheme } from '../types';
 
 interface ReflectionSessionProps {
@@ -115,7 +116,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
           updatedAt: Date.now(),
         });
       } catch (err: any) {
-        setErrorMessage(err.message || 'Failed to update title.');
+        setErrorMessage(sanitizeUserFacingError(err, 'Failed to update reflection title.'));
       }
     }
   };
@@ -129,7 +130,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
       });
       setIsEntryEmojiPickerOpen(false);
     } catch (err: any) {
-      setErrorMessage('Failed to set reflection emoji.');
+      setErrorMessage(sanitizeUserFacingError(err, 'Failed to set reflection emoji.'));
     }
   };
 
@@ -142,7 +143,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         updatedAt: Date.now(),
       });
     } catch (err: any) {
-      setErrorMessage('Failed to update font style.');
+      setErrorMessage(sanitizeUserFacingError(err, 'Failed to update font style.'));
     }
   };
 
@@ -155,11 +156,10 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         updatedAt: Date.now(),
       });
     } catch (err: any) {
-      setErrorMessage('Failed to update paper theme.');
+      setErrorMessage(sanitizeUserFacingError(err, 'Failed to update paper theme.'));
     }
   };
 
-  // Toggle emoji reaction on a message
   const handleToggleReaction = async (messageId: string, emoji: string) => {
     const updatedMessages = entry.messages.map((m) => {
       if (m.id !== messageId) return m;
@@ -276,17 +276,24 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         updatedAt: Date.now(),
       });
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to update location.');
+      setErrorMessage(sanitizeUserFacingError(err, 'Failed to update location.'));
     }
   };
 
-  // Image Upload Handler
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Image Upload Handler with Strict MIME, Size, and Binary Magic Bytes Validation
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith('image/')) return;
+    setErrorMessage(null);
+
+    for (const file of Array.from(files)) {
+      const validation = await validateImageUpload(file);
+      if (!validation.valid) {
+        setErrorMessage(validation.error || 'Invalid file uploaded.');
+        continue;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         if (reader.result) {
@@ -294,7 +301,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         }
       };
       reader.readAsDataURL(file);
-    });
+    }
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -407,7 +414,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
       await onUpdateEntry(finalEntry);
     } catch (err: any) {
       console.error('Failed to get Gemini response or save:', err);
-      setErrorMessage(err.message || 'Failed to save or generate response. Please try again.');
+      setErrorMessage(sanitizeUserFacingError(err, 'Failed to save or generate reflection response. Please try again.'));
     } finally {
       setIsGenerating(false);
     }
@@ -455,7 +462,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
       setShowSummaryCard(true);
     } catch (err: any) {
       console.error('Summary error:', err);
-      setErrorMessage(err.message || 'Could not generate summary or save.');
+      setErrorMessage(sanitizeUserFacingError(err, 'Could not generate summary or save. Please try again.'));
     } finally {
       setIsSummarizing(false);
     }
@@ -468,7 +475,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
     }
   };
 
-  // Helper font class generator
   const getFontClass = () => {
     switch (selectedFont) {
       case 'handwritten':
@@ -484,7 +490,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
     }
   };
 
-  // Explicit Paper Theme Palette Config
   const getThemePalette = () => {
     switch (selectedTheme) {
       case 'midnight':
@@ -527,7 +532,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
           activePill: 'bg-white text-[#381F23] font-semibold shadow-xs',
         };
       default:
-        // Parchment (Default)
         return {
           container: 'bg-[#FDFCFB] text-[#2D2926]',
           topBar: 'bg-[#FDFCFB]/95 border-[#F0EDE8] text-[#2D2926]',
@@ -550,7 +554,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
       {/* Session Top Bar */}
       <div className={`px-6 py-3.5 border-b backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0 ${themePalette.topBar}`}>
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          {/* Entry Emoji Icon Selector */}
           <div className="relative">
             <button
               onClick={() => setIsEntryEmojiPickerOpen(!isEntryEmojiPickerOpen)}
@@ -588,7 +591,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
             </h2>
           )}
 
-          {/* Location Badge */}
           {entry.location && (
             <div className={`flex items-center gap-1 text-xs font-sans shrink-0 px-2.5 py-1 rounded-full border ${themePalette.badge}`}>
               <MapPin className="w-3 h-3 text-[#5A5A40]" />
@@ -596,7 +598,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
             </div>
           )}
 
-          {/* Action Icons */}
           <div className="flex items-center gap-1">
             <button
               onClick={() => setIsSearchingLocation(!isSearchingLocation)}
@@ -606,7 +607,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
               <MapPin className="w-4 h-4" />
             </button>
 
-            {/* Style & Theme Customizer Toggle */}
             <div className="relative">
               <button
                 onClick={() => setShowStyleMenu(!showStyleMenu)}
@@ -616,7 +616,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                 <Palette className="w-4 h-4" />
               </button>
 
-              {/* Style Dropdown Menu */}
               {showStyleMenu && (
                 <div className="absolute top-10 left-0 z-50 w-64 bg-[#FDFCFB] text-[#2D2926] rounded-2xl shadow-xl border border-[#E6E1D6] p-4 flex flex-col gap-4 animate-in fade-in slide-in-from-top-2">
                   <div>
@@ -687,7 +686,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                     updatedAt: Date.now(),
                   });
                 } catch (err: any) {
-                  setErrorMessage(err.message || 'Failed to save favorite toggle.');
+                  setErrorMessage(sanitizeUserFacingError(err, 'Failed to save favorite status.'));
                 }
               }}
               className="p-1.5 rounded-md opacity-70 hover:opacity-100 hover:bg-black/5 cursor-pointer transition-colors"
@@ -698,7 +697,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
           </div>
         </div>
 
-        {/* Location Picker & 1-Click Auto Detect Box */}
         {isSearchingLocation && (
           <div className="absolute top-16 left-6 z-50 w-80 bg-[#FDFCFB] text-[#2D2926] rounded-2xl shadow-xl border border-[#E6E1D6] p-4 animate-in fade-in slide-in-from-top-2">
             <div className="flex items-center justify-between mb-2">
@@ -750,9 +748,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
           </div>
         )}
 
-        {/* Action Controls */}
         <div className="flex items-center gap-2.5 shrink-0">
-          {/* Mode Switcher */}
           <div className={`flex items-center p-1 rounded-full text-xs font-medium ${themePalette.pill}`}>
             {(['reflective', 'brainstorm', 'actionable'] as ReflectionMode[]).map((mode) => (
               <button
@@ -767,7 +763,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
             ))}
           </div>
 
-          {/* AI Summarize Action */}
           <button
             id="btn-summarize-entry"
             onClick={handleGenerateSummary}
@@ -783,7 +778,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
 
       {/* Main Conversation & Journal Stream */}
       <div className={`flex-1 overflow-y-auto px-4 sm:px-10 py-6 space-y-6 ${getFontClass()}`}>
-        {/* AI Summary / Insights Card */}
         {entry.summary && (
           <div className={`p-6 rounded-[28px] border shadow-xs ${themePalette.summaryCard}`}>
             <div className="flex items-center justify-between mb-3">
@@ -833,7 +827,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
           </div>
         )}
 
-        {/* Empty State */}
         {entry.messages.length === 0 ? (
           <div className="py-8 max-w-xl mx-auto text-center space-y-6">
             <div className="w-12 h-12 rounded-full bg-[#EDE8DF] text-[#5A5A40] flex items-center justify-center mx-auto shadow-xs">
@@ -865,7 +858,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
             </div>
           </div>
         ) : (
-          /* Conversation Stream */
           entry.messages.map((message) => {
             const isUser = message.role === 'user';
             return (
@@ -886,7 +878,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                     </div>
                   )}
 
-                  {/* Message Content */}
                   {isUser ? (
                     <div className="whitespace-pre-wrap">{message.content}</div>
                   ) : (
@@ -895,7 +886,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                     </div>
                   )}
 
-                  {/* Photos Attachment Grid */}
                   {message.photos && message.photos.length > 0 && (
                     <div className="mt-3 grid grid-cols-2 gap-2 pt-2 border-t border-current/10">
                       {message.photos.map((photo, pIdx) => (
@@ -913,7 +903,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                     </div>
                   )}
 
-                  {/* Audio Note Attachment Bar */}
                   {message.audioNote && (
                     <div className="mt-3 p-3 rounded-2xl bg-black/5 border border-current/10 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5">
@@ -938,7 +927,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                     </div>
                   )}
 
-                  {/* Emoji Reactions Bar */}
                   <div className="mt-2.5 pt-2 border-t border-current/10 flex items-center gap-1">
                     {QUICK_REACTION_EMOJIS.map((emoji) => {
                       const isReacted = message.reactions?.includes(emoji);
@@ -970,7 +958,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
           })
         )}
 
-        {/* Gemini Generating Indicator */}
         {isGenerating && (
           <div className="flex flex-col items-start">
             <div className={`max-w-md rounded-[28px] p-5 ${themePalette.modelBubble} rounded-tl-none`}>
@@ -982,7 +969,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
           </div>
         )}
 
-        {/* Error notification */}
         <ErrorBanner
           message={errorMessage || ''}
           onRetry={inputText.trim() ? () => { setErrorMessage(null); handleSendMessage(); } : undefined}
@@ -994,7 +980,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
 
       {/* Composer Section */}
       <div className="p-4 sm:p-6 border-t border-current/10 shrink-0 relative">
-        {/* Emoji Picker Popover */}
         <EmojiPickerPopover
           isOpen={isEmojiPickerOpen}
           onClose={() => setIsEmojiPickerOpen(false)}
@@ -1002,7 +987,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         />
 
         <div className="max-w-3xl mx-auto space-y-2">
-          {/* Pre-send Attachment Chips */}
           {(attachedPhotos.length > 0 || pendingAudioNote) && (
             <div className="flex flex-wrap items-center gap-2 pb-2">
               {attachedPhotos.map((photo, idx) => (
@@ -1045,20 +1029,19 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
             />
 
             <div className="flex items-center justify-between pt-2 border-t border-current/10 mt-1">
-              {/* Media Attachment Toolbar */}
               <div className="flex items-center gap-1">
                 <input
                   type="file"
                   ref={fileInputRef}
                   onChange={handlePhotoUpload}
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
                   multiple
                   className="hidden"
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="p-2 rounded-full opacity-70 hover:opacity-100 hover:bg-black/5 transition-colors cursor-pointer"
-                  title="Attach Photo"
+                  title="Attach Photo (JPEG, PNG, WEBP, GIF < 5MB)"
                 >
                   <ImageIcon className="w-4 h-4" />
                 </button>
@@ -1098,7 +1081,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         </div>
       </div>
 
-      {/* Voice Recorder Modal */}
       <VoiceRecorderModal
         isOpen={isVoiceModalOpen}
         onClose={() => setIsVoiceModalOpen(false)}
@@ -1113,7 +1095,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         }}
       />
 
-      {/* Photo Lightbox Modal */}
       {lightboxImage && (
         <div
           onClick={() => setLightboxImage(null)}
