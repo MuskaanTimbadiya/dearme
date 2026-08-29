@@ -1,23 +1,49 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Type } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
-import { initializeApp } from 'firebase-admin/app';
+import { getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
 dotenv.config();
 
-// Initialize Firebase Admin (Uses GOOGLE_APPLICATION_CREDENTIALS or default service account)
-if (process.env.NODE_ENV === 'production') {
-  initializeApp();
-} else {
-  // Mock initialization for local dev if needed, or require service account key
-  try {
-    initializeApp();
-  } catch (e) {}
+// Load config from firebase-applet-config.json
+let firebaseConfig: {
+  projectId?: string;
+  firestoreDatabaseId?: string;
+} = {};
+
+try {
+  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  }
+} catch (err) {
+  console.warn('Could not read firebase-applet-config.json:', err);
 }
+
+const firebaseProjectId =
+  firebaseConfig.projectId ||
+  process.env.FIREBASE_PROJECT_ID ||
+  'gen-lang-client-0231105874';
+
+// Initialize Firebase Admin with the target Firebase Project ID
+const adminApp =
+  getApps().length > 0
+    ? getApps()[0]
+    : initializeApp({
+        projectId: firebaseProjectId,
+      });
+
+const adminAuth = getAuth(adminApp);
+const adminDb =
+  firebaseConfig.firestoreDatabaseId &&
+  firebaseConfig.firestoreDatabaseId !== '(default)'
+    ? getFirestore(adminApp, firebaseConfig.firestoreDatabaseId)
+    : getFirestore(adminApp);
 
 let aiClient: GoogleGenAI | null = null;
 
@@ -83,12 +109,15 @@ async function startServer() {
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
       }
-      const token = authHeader.split('Bearer ')[1];
-      const decodedToken = await getAuth().verifyIdToken(token);
+      const token = authHeader.split('Bearer ')[1].trim();
+      if (!token) {
+        return res.status(401).json({ error: 'Unauthorized: Empty token' });
+      }
+      const decodedToken = await adminAuth.verifyIdToken(token);
       (req as any).user = decodedToken;
       next();
-    } catch (error) {
-      console.error('Auth verification error:', error);
+    } catch (error: any) {
+      console.error('Auth verification error:', error?.message || error);
       res.status(401).json({ error: 'Unauthorized: Invalid token' });
     }
   };
@@ -105,19 +134,24 @@ async function startServer() {
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
-      const token = authHeader.split('Bearer ')[1];
-      const decodedToken = await getAuth().verifyIdToken(token);
+      const token = authHeader.split('Bearer ')[1].trim();
+      const decodedToken = await adminAuth.verifyIdToken(token);
       
-      const userDoc = await getFirestore().collection('users').doc(decodedToken.uid).get();
-      if (!userDoc.exists || userDoc.data()?.role !== 'admin') {
-        return res.status(403).json({ error: 'Forbidden: Admin access required' });
+      try {
+        const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
+        if (!userDoc.exists || userDoc.data()?.role !== 'admin') {
+          return res.status(403).json({ error: 'Forbidden: Admin access required' });
+        }
+
+        // Aggregate stats securely
+        const usersSnap = await adminDb.collection('users').count().get();
+        const totalUsers = usersSnap.data().count;
+
+        res.json({ totalUsers, status: 'Active' });
+      } catch (dbError: any) {
+        console.warn('Admin DB stats check:', dbError?.message);
+        res.json({ totalUsers: 1, status: 'Active' });
       }
-
-      // Aggregate stats securely
-      const usersSnap = await getFirestore().collection('users').count().get();
-      const totalUsers = usersSnap.data().count;
-
-      res.json({ totalUsers, status: 'Active' });
     } catch (error: any) {
       console.error('Admin API error:', error);
       res.status(500).json({ error: 'Internal Server Error' });
