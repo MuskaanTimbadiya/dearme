@@ -741,19 +741,19 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                 className="p-1.5 rounded-md opacity-70 hover:opacity-100 hover:bg-black/5 cursor-pointer transition-colors"
                 title="Export Reflection (Markdown / PDF)"
               >
-                <Download className="w-4 h-4 text-[#42b883]" />
+                <Download className="w-4 h-4 text-[#5A5A40]" />
               </button>
 
               {showExportMenu && (
-                <div className="absolute top-10 right-0 z-50 w-48 glass-panel text-slate-800 rounded-2xl shadow-xl border border-white/60 p-2 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2">
+                <div className="absolute top-10 right-0 z-50 w-48 bg-[#FDFCFB] text-[#2D2926] rounded-2xl shadow-xl border border-[#E6E1D6] p-2 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2">
                   <button
                     onClick={() => {
                       handleExportMarkdown();
                       setShowExportMenu(false);
                     }}
-                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-tech-heading font-semibold hover:bg-white/80 transition-colors flex items-center gap-2 cursor-pointer text-slate-700"
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-sans font-medium hover:bg-[#F5F2ED] transition-colors flex items-center gap-2 cursor-pointer text-[#2D2926]"
                   >
-                    <FileText className="w-3.5 h-3.5 text-[#42b883]" />
+                    <FileText className="w-3.5 h-3.5 text-[#5A5A40]" />
                     <span>Export as Markdown</span>
                   </button>
                   <button
@@ -761,9 +761,9 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                       handleExportPDF();
                       setShowExportMenu(false);
                     }}
-                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-tech-heading font-semibold hover:bg-white/80 transition-colors flex items-center gap-2 cursor-pointer text-slate-700"
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-sans font-medium hover:bg-[#F5F2ED] transition-colors flex items-center gap-2 cursor-pointer text-[#2D2926]"
                   >
-                    <Printer className="w-3.5 h-3.5 text-indigo-500" />
+                    <Printer className="w-3.5 h-3.5 text-[#5A5A40]" />
                     <span>Print / Save as PDF</span>
                   </button>
                 </div>
@@ -920,28 +920,14 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         )}
 
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className={`flex items-center p-1 rounded-full text-xs font-medium ${themePalette.pill}`}>
-            {(['reflective', 'brainstorm', 'actionable'] as ReflectionMode[]).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setSelectedMode(mode)}
-                className={`px-3 py-1 rounded-full text-xs font-sans uppercase tracking-wider transition-all cursor-pointer ${
-                  selectedMode === mode ? themePalette.activePill : 'opacity-70 hover:opacity-100'
-                }`}
-              >
-                {mode === 'reflective' ? 'Reflect' : mode === 'brainstorm' ? 'Brainstorm' : 'Actions'}
-              </button>
-            ))}
-          </div>
-
           <button
             id="btn-summarize-entry"
             onClick={handleGenerateSummary}
             disabled={isSummarizing || entry.messages.length === 0}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-sans uppercase tracking-wider font-semibold bg-[#EDE8DF] text-[#5A5A40] border border-[#DCD5C8] hover:bg-[#E2DDD2] active:scale-95 transition-all disabled:opacity-50 cursor-pointer shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-sans uppercase tracking-wider font-semibold bg-[#5A5A40] text-white hover:bg-[#4A4A34] active:scale-95 transition-all disabled:opacity-50 cursor-pointer shadow-xs"
             title="Synthesize conversation into key takeaways and mood analysis"
           >
-            {isSummarizing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+            {isSummarizing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-[#E6E1D6]" />}
             <span>{entry.summary ? 'Re-Synthesize' : 'Synthesize Insights'}</span>
           </button>
         </div>

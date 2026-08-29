@@ -68,26 +68,26 @@ export const MoodTrendsModal: React.FC<MoodTrendsModalProps> = ({
   const favoriteEntries = entries.filter((e) => e.isFavorite).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in">
-      <div className="relative w-full max-w-4xl glass-panel-dark text-white rounded-3xl border border-white/20 shadow-2xl overflow-hidden p-6 sm:p-8 flex flex-col gap-6 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 animate-in fade-in">
+      <div className="relative w-full max-w-4xl bg-slate-900 text-white rounded-3xl border border-slate-800 shadow-2xl overflow-hidden p-6 sm:p-8 flex flex-col gap-6 max-h-[90vh] overflow-y-auto">
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#35495e] to-[#42b883] flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 rounded-2xl bg-[#5A5A40] flex items-center justify-center shadow-md">
               <TrendingUp className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-tech-heading font-bold text-white tracking-tight">
+              <h2 className="text-xl font-sans font-bold text-white tracking-tight">
                 Mood Trends & Mindfulness Insights
               </h2>
-              <p className="text-xs text-slate-400 font-sans-body">
+              <p className="text-xs text-slate-400 font-sans">
                 Visual analytics mapping your emotional trajectory and journal activity
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="p-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -95,41 +95,41 @@ export const MoodTrendsModal: React.FC<MoodTrendsModalProps> = ({
 
         {/* Quick Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="glass-panel p-4 rounded-2xl border border-white/10 flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-[#42b883]/20 text-[#42b883]">
+          <div className="bg-slate-800/60 p-4 rounded-2xl border border-slate-700/50 flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-emerald-500/15 text-emerald-400">
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-2xl font-tech-heading font-black text-white">{totalEntries}</span>
-              <p className="text-[11px] font-sans-body text-slate-400">Total Reflections</p>
+              <span className="text-2xl font-sans font-black text-white">{totalEntries}</span>
+              <p className="text-[11px] font-sans text-slate-400">Total Reflections</p>
             </div>
           </div>
 
-          <div className="glass-panel p-4 rounded-2xl border border-white/10 flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-indigo-500/20 text-indigo-400">
+          <div className="bg-slate-800/60 p-4 rounded-2xl border border-slate-700/50 flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-indigo-500/15 text-indigo-400">
               <Heart className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-2xl font-tech-heading font-black text-white">{favoriteEntries}</span>
-              <p className="text-[11px] font-sans-body text-slate-400">Starred Reflections</p>
+              <span className="text-2xl font-sans font-black text-white">{favoriteEntries}</span>
+              <p className="text-[11px] font-sans text-slate-400">Starred Reflections</p>
             </div>
           </div>
 
-          <div className="glass-panel p-4 rounded-2xl border border-white/10 flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-pink-500/20 text-pink-400">
+          <div className="bg-slate-800/60 p-4 rounded-2xl border border-slate-700/50 flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-pink-500/15 text-pink-400">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-2xl font-tech-heading font-black text-white">
+              <span className="text-2xl font-sans font-black text-white">
                 {processedMoodDistribution.length}
               </span>
-              <p className="text-[11px] font-sans-body text-slate-400">Unique Mood Tags</p>
+              <p className="text-[11px] font-sans text-slate-400">Unique Mood Tags</p>
             </div>
           </div>
         </div>
 
         {/* Reflection Activity Chart */}
-        <div className="glass-panel p-5 rounded-2xl border border-white/10 flex flex-col gap-3">
+        <div className="bg-slate-800/60 p-5 rounded-2xl border border-slate-700/50 flex flex-col gap-3">
           <div className="flex items-center gap-2 text-xs font-tech-heading font-semibold text-slate-300">
             <BarChart2 className="w-4 h-4 text-[#42b883]" />
             <span>14-Day Reflection Activity</span>

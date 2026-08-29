@@ -12,6 +12,38 @@
   }
 }
 
+/* Solid UI Utilities */
+.card-solid {
+  background-color: #ffffff;
+  border: 1px solid #E6E1D6;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+}
+
+.card-solid-dark {
+  background-color: #0f172a;
+  border: 1px solid #1e293b;
+  color: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.btn-primary-solid {
+  background-color: #5A5A40;
+  color: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.btn-primary-solid:hover {
+  background-color: #4A4A34;
+}
+
+.font-tech-heading {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+.font-sans-body {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
 /* Font Families */
 .font-journal-serif {
   font-family: 'Cormorant Garamond', Georgia, serif;

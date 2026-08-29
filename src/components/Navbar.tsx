@@ -32,29 +32,29 @@ export const Navbar: React.FC<NavbarProps> = ({
   const streak = calculateStreak();
 
   return (
-    <header className="h-16 border-b border-white/30 bg-white/70 backdrop-blur-xl px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+    <header className="h-16 border-b border-[#E6E1D6] bg-[#FDFCFB] px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
       {/* Brand & App Title */}
-      <div className="flex items-center gap-3.5">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#35495e] to-[#42b883] text-white flex items-center justify-center shadow-xs">
-          <span className="font-tech-heading font-black text-sm tracking-tighter text-white">DM</span>
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-[#5A5A40] text-white flex items-center justify-center shadow-xs">
+          <span className="font-serif font-bold text-base text-[#FDFCFB]">DM</span>
         </div>
         <div>
-          <span className="font-tech-heading font-bold text-lg text-slate-800 tracking-tight leading-none block">DearMe</span>
-          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-slate-500 font-sans-body mt-0.5">
-            <ShieldCheck className="w-3 h-3 text-[#42b883]" />
+          <span className="font-serif font-semibold text-lg text-[#2D2926] tracking-tight leading-none block">DearMe</span>
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-[#8C857B] font-sans mt-0.5">
+            <ShieldCheck className="w-3 h-3 text-[#5A5A40]" />
             <span>Private Space ({user.email?.split('@')[0]})</span>
           </div>
         </div>
       </div>
 
       {/* Action Controls & Profile */}
-      <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Streak Counter Pill */}
         <div
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full glass-panel border border-amber-500/30 text-amber-600 text-xs font-tech-heading font-bold shadow-2xs"
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-sans font-semibold shadow-2xs"
           title={`${streak} unique reflection days logged`}
         >
-          <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500 animate-pulse" />
+          <Flame className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
           <span>{streak} Day Streak</span>
         </div>
 
@@ -62,10 +62,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         {onOpenInsights && (
           <button
             onClick={onOpenInsights}
-            className="p-2 rounded-full glass-panel hover:bg-white/80 transition-colors text-slate-700 cursor-pointer"
+            className="p-2 rounded-full bg-white border border-[#E6E1D6] hover:bg-[#F9F8F6] transition-colors text-[#5A5A40] cursor-pointer shadow-2xs"
             title="View Mood Trends & Insights"
           >
-            <BarChart2 className="w-4 h-4 text-[#42b883]" />
+            <BarChart2 className="w-4 h-4 text-[#5A5A40]" />
           </button>
         )}
 
@@ -73,10 +73,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         {onOpenOnboarding && (
           <button
             onClick={onOpenOnboarding}
-            className="p-2 rounded-full glass-panel hover:bg-white/80 transition-colors text-slate-700 cursor-pointer"
+            className="p-2 rounded-full bg-white border border-[#E6E1D6] hover:bg-[#F9F8F6] transition-colors text-[#5A5A40] cursor-pointer shadow-2xs"
             title="Take Tooltip Tour"
           >
-            <HelpCircle className="w-4 h-4 text-indigo-500" />
+            <HelpCircle className="w-4 h-4 text-[#5A5A40]" />
           </button>
         )}
 

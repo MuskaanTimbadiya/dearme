@@ -397,26 +397,17 @@ Tone and style:
         return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: validation.errors });
       }
 
-      const { messages, mode = 'reflective', entryTitle = '' } = req.body;
+      const { messages, entryTitle = '' } = req.body;
 
-      let systemInstruction = `You are a thoughtful, empathetic, and insightful AI Reflection Companion and Journal Guide.
-Your purpose is to help the user unpack their thoughts, feelings, plans, and experiences with clarity and warmth.
+      let systemInstruction = `You are a thoughtful, empathetic, and highly adaptive AI Reflection Companion and Journal Guide.
+Your purpose is to help the user unpack their thoughts, feelings, plans, and experiences with clarity, depth, and warmth.
 
-Tone and style:
-- Empathetic, supportive, constructive, and grounded.
-- Avoid generic cliches or unsolicited patronizing advice.
-- When the user shares something deep or challenging, validate their perspective before gently offering reframing or reflective questions.
+Adaptive Behavior:
+- Dynamically analyze the user's intent from what they write.
+- If they are exploring ideas or seeking options, provide creative perspective & brainstorming angles.
+- If they share a practical problem or goal, offer realistic, grounded micro-steps or practical boundaries.
+- If they express deep emotions or personal experiences, offer gentle validation and 1-2 open-ended reflective questions.
 - Format responses clearly with markdown formatting (bullet points, clear paragraphs, bold emphasis where helpful).`;
-
-      if (mode === 'brainstorm') {
-        systemInstruction += `\nCurrent focus: Brainstorming & Perspective Exploration. Help the user explore diverse angles, creative alternatives, unexpected possibilities, and creative solutions.`;
-      } else if (mode === 'actionable') {
-        systemInstruction += `\nCurrent focus: Clarity & Actionable Next Steps. Help distill the user's thoughts into clear, realistic micro-steps, boundaries, or practical experiments.`;
-      } else if (mode === 'summary') {
-        systemInstruction += `\nCurrent focus: Synthesizing & Core Themes. Help identify underlying emotional patterns, recurring themes, and core insights from what they wrote.`;
-      } else {
-        systemInstruction += `\nCurrent focus: Gentle Socratic Reflection. Encourage deeper self-awareness, ask 1-2 open-ended reflective questions, and highlight positive moments or growth edges.`;
-      }
 
       if (entryTitle) {
         systemInstruction += `\nJournal Entry Topic/Title: "${String(entryTitle).slice(0, 100)}"`;
