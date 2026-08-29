@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import {
   Search,
-  BookMarked,
   Trash2,
   Star,
   Calendar,
   MessageSquare,
   Sparkles,
   PlusCircle,
+  Image as ImageIcon,
+  Mic,
+  MapPin,
 } from 'lucide-react';
 import type { JournalEntry } from '../types';
 
@@ -39,10 +41,11 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
     const matchTitle = entry.title.toLowerCase().includes(query);
     const matchSummary = entry.summary?.toLowerCase().includes(query);
     const matchMood = entry.mood?.toLowerCase().includes(query);
+    const matchLocation = entry.location?.description?.toLowerCase().includes(query);
     const matchMessages = entry.messages.some((m) =>
       m.content.toLowerCase().includes(query)
     );
-    return matchTitle || matchSummary || matchMood || matchMessages;
+    return matchTitle || matchSummary || matchMood || matchLocation || matchMessages;
   });
 
   const formatDate = (timestamp: number) => {
@@ -83,7 +86,7 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
           <input
             id="input-sidebar-search"
             type="text"
-            placeholder="Search reflections & insights..."
+            placeholder="Search reflections, photos, locations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3.5 py-2 text-xs rounded-2xl bg-white border border-[#E6E1D6] focus:outline-none focus:ring-1 focus:ring-[#5A5A40] focus:border-[#5A5A40] text-[#2D2926] placeholder-[#A8A294]"
@@ -126,6 +129,8 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
           filteredEntries.map((entry) => {
             const isSelected = entry.id === selectedEntryId;
             const isConfirmingDelete = deletingId === entry.id;
+            const hasPhotos = entry.messages.some((m) => m.photos && m.photos.length > 0);
+            const hasAudio = entry.messages.some((m) => m.audioNote);
 
             return (
               <div
@@ -207,12 +212,30 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
                       </div>
                     </div>
 
-                    {/* Mood tag */}
-                    {entry.mood && (
-                      <div className="inline-block px-2 py-0.5 mb-1 rounded-full bg-[#E6E1D6] text-[9px] font-sans uppercase tracking-wider text-[#5A5A40]">
-                        {entry.mood}
-                      </div>
-                    )}
+                    {/* Mood tag & Badges */}
+                    <div className="flex flex-wrap items-center gap-1 mb-1">
+                      {entry.mood && (
+                        <span className="px-2 py-0.5 rounded-full bg-[#E6E1D6] text-[9px] font-sans uppercase tracking-wider text-[#5A5A40]">
+                          {entry.mood}
+                        </span>
+                      )}
+                      {entry.location && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-black/5 text-[9px] font-sans text-[#5A5A40]">
+                          <MapPin className="w-2.5 h-2.5" />
+                          <span className="truncate max-w-[80px]">{entry.location.description}</span>
+                        </span>
+                      )}
+                      {hasPhotos && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-black/5 text-[9px] font-sans text-[#5A5A40]" title="Contains Photos">
+                          <ImageIcon className="w-2.5 h-2.5" />
+                        </span>
+                      )}
+                      {hasAudio && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-black/5 text-[9px] font-sans text-[#5A5A40]" title="Contains Voice Note">
+                          <Mic className="w-2.5 h-2.5" />
+                        </span>
+                      )}
+                    </div>
 
                     <p className="text-[11px] text-[#6E675E] line-clamp-1 mb-1.5 leading-normal">
                       {entry.summary ||

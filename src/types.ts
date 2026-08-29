@@ -3,7 +3,16 @@ export interface JournalMessage {
   role: 'user' | 'model';
   content: string;
   timestamp: number;
+  photos?: string[];
+  audioNote?: {
+    url: string;
+    duration: number;
+    transcript?: string;
+  };
 }
+
+export type JournalFontFamily = 'serif' | 'handwritten' | 'sans' | 'mono' | 'editorial';
+export type JournalTheme = 'parchment' | 'midnight' | 'sage' | 'rose';
 
 export interface JournalEntry {
   id: string;
@@ -16,6 +25,8 @@ export interface JournalEntry {
   keyTakeaways?: string[];
   messages: JournalMessage[];
   isFavorite?: boolean;
+  fontFamily?: JournalFontFamily;
+  theme?: JournalTheme;
   location?: {
     placeId?: string;
     description: string;
