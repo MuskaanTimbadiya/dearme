@@ -4,7 +4,13 @@ import { Feather, Shield, Users, Activity, ArrowLeft } from 'lucide-react';
 import type { UserProfile } from '../types';
 
 export const AdminDashboard: React.FC<{ user: UserProfile }> = ({ user }) => {
-  const [stats, setStats] = useState<{ totalUsers?: number; status?: string } | null>(null);
+  const [stats, setStats] = useState<{
+    totalUsers?: number;
+    totalEntries?: number;
+    entriesToday?: number;
+    topMoods?: Array<{ name: string; count: number }>;
+    status?: string;
+  } | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -50,8 +56,8 @@ export const AdminDashboard: React.FC<{ user: UserProfile }> = ({ user }) => {
         </div>
       </div>
 
-      <div className="flex-1 p-8 max-w-4xl mx-auto w-full">
-        <h2 className="text-2xl font-serif mb-6 text-[#2D2926]">System Overview</h2>
+      <div className="flex-1 p-8 max-w-5xl mx-auto w-full space-y-6">
+        <h2 className="text-2xl font-serif text-[#2D2926]">System Telemetry & Activity</h2>
         
         {loading ? (
           <div className="flex items-center justify-center p-12">
@@ -68,17 +74,46 @@ export const AdminDashboard: React.FC<{ user: UserProfile }> = ({ user }) => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-[#F0EDE8] flex flex-col items-center justify-center text-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="bg-white p-6 rounded-2xl shadow-xs border border-[#F0EDE8] flex flex-col items-center justify-center text-center">
               <Users className="w-8 h-8 text-[#5A5A40] mb-3" />
-              <div className="text-4xl font-serif text-[#2D2926] mb-1">{stats?.totalUsers || 0}</div>
-              <div className="text-xs uppercase tracking-widest font-sans text-[#A8A294]">Total Users</div>
+              <div className="text-3xl font-serif font-bold text-[#2D2926] mb-1">{stats?.totalUsers || 0}</div>
+              <div className="text-[10px] uppercase tracking-widest font-sans font-semibold text-[#A8A294]">Registered Users</div>
             </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-[#F0EDE8] flex flex-col items-center justify-center text-center">
-              <Activity className="w-8 h-8 text-[#5A5A40] mb-3" />
-              <div className="text-4xl font-serif text-[#2D2926] mb-1">{stats?.status || 'Unknown'}</div>
-              <div className="text-xs uppercase tracking-widest font-sans text-[#A8A294]">System Status</div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-xs border border-[#F0EDE8] flex flex-col items-center justify-center text-center">
+              <Activity className="w-8 h-8 text-[#42b883] mb-3" />
+              <div className="text-3xl font-serif font-bold text-[#2D2926] mb-1">{stats?.entriesToday || 0}</div>
+              <div className="text-[10px] uppercase tracking-widest font-sans font-semibold text-[#A8A294]">Entries (Last 24h)</div>
             </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-xs border border-[#F0EDE8] flex flex-col items-center justify-center text-center">
+              <Feather className="w-8 h-8 text-indigo-500 mb-3" />
+              <div className="text-3xl font-serif font-bold text-[#2D2926] mb-1">{stats?.totalEntries || 0}</div>
+              <div className="text-[10px] uppercase tracking-widest font-sans font-semibold text-[#A8A294]">Total Reflections</div>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-xs border border-[#F0EDE8] flex flex-col items-center justify-center text-center">
+              <Shield className="w-8 h-8 text-emerald-600 mb-3" />
+              <div className="text-3xl font-serif font-bold text-[#2D2926] mb-1">{stats?.status || 'Active'}</div>
+              <div className="text-[10px] uppercase tracking-widest font-sans font-semibold text-[#A8A294]">System Status</div>
+            </div>
+
+            {stats?.topMoods && stats.topMoods.length > 0 && (
+              <div className="sm:col-span-2 lg:col-span-4 bg-white p-6 rounded-2xl shadow-xs border border-[#F0EDE8]">
+                <h3 className="text-xs uppercase tracking-widest font-sans font-semibold text-[#A8A294] mb-3">
+                  Top Mood Tag Frequencies
+                </h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  {stats.topMoods.map((m, i) => (
+                    <div key={i} className="px-3 py-1.5 rounded-full bg-[#F5F2ED] border border-[#E6E1D6] text-xs font-sans font-medium text-[#5A5A40] flex items-center gap-2">
+                      <span>{m.name}</span>
+                      <span className="px-1.5 py-0.5 rounded-full bg-[#5A5A40] text-white text-[10px] font-bold">{m.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

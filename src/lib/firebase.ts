@@ -3,6 +3,7 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   type User,
 } from 'firebase/auth';
@@ -50,9 +51,10 @@ export const signInWithGoogle = async (): Promise<User | null> => {
       console.info('Google sign-in popup was closed by the user.');
       return null;
     }
-    if (error?.code === 'auth/popup-blocked') {
-      console.warn('Google sign-in popup was blocked by the browser.');
-      throw new Error('Sign-in popup was blocked by your browser. Please allow popups for this window and try again.');
+    if (error?.code === 'auth/popup-blocked' || error?.message?.includes('COOP') || error?.message?.includes('Cross-Origin-Opener-Policy')) {
+      console.warn('Google sign-in popup blocked or COOP restriction. Falling back to redirect sign-in...');
+      await signInWithRedirect(auth, googleProvider);
+      return null;
     }
     if (error?.code === 'auth/unauthorized-domain') {
       console.warn('Unauthorized domain error in local dev environment. Falling back to local dev user session.');

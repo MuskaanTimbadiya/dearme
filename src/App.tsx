@@ -300,6 +300,7 @@ export default function App() {
           onDeleteEntry={handleDeleteEntry}
           onToggleFavorite={handleToggleFavorite}
           onNewEntry={handleCreateNewEntry}
+          onOpenInsights={() => setIsInsightsOpen(true)}
         />
 
         {/* Active Reflection Session */}

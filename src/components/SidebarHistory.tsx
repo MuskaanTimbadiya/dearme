@@ -11,6 +11,7 @@ import {
   Mic,
   MapPin,
   ArrowUpDown,
+  BarChart2,
 } from 'lucide-react';
 import type { JournalEntry } from '../types';
 
@@ -21,6 +22,7 @@ interface SidebarHistoryProps {
   onDeleteEntry: (entryId: string) => void;
   onToggleFavorite: (entryId: string, isFav: boolean) => void;
   onNewEntry: () => void;
+  onOpenInsights?: () => void;
 }
 
 export type SortOption = 'newest' | 'oldest' | 'title' | 'messages';
@@ -32,6 +34,7 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
   onDeleteEntry,
   onToggleFavorite,
   onNewEntry,
+  onOpenInsights,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterFavoriteOnly, setFilterFavoriteOnly] = useState(false);
@@ -82,10 +85,20 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
       {/* Sidebar Header */}
       <div className="p-5 border-b border-[#E6E1D6] space-y-4">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex items-center gap-2">
             <h2 className="text-[11px] uppercase tracking-wider text-[#A8A294] font-sans font-semibold">
               Past Reflections ({entries.length})
             </h2>
+            {onOpenInsights && (
+              <button
+                onClick={onOpenInsights}
+                className="px-2 py-0.5 rounded-full bg-[#EDE8DF] text-[#5A5A40] text-[10px] font-sans font-semibold uppercase tracking-wider hover:bg-[#E2DDD2] transition-colors cursor-pointer flex items-center gap-1"
+                title="View Mood Trends & Insights"
+              >
+                <BarChart2 className="w-3 h-3 text-[#5A5A40]" />
+                <span>Insights</span>
+              </button>
+            )}
           </div>
 
           <button

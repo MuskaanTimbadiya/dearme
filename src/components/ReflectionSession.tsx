@@ -1012,6 +1012,10 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                   </button>
                 ))}
               </div>
+              <p className="text-[11px] font-sans text-center text-[#8C857B] mt-4 flex items-center justify-center gap-1.5">
+                <span>Prefer to talk it out or share a memory?</span>
+                <span className="font-semibold text-[#5A5A40]">Try a voice note 🎙️ or attach photos 📷 below.</span>
+              </p>
             </div>
           </div>
         ) : (
