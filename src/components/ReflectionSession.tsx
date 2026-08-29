@@ -21,14 +21,19 @@ import {
   Pause,
   Maximize2,
   Smile,
+  Download,
+  Printer,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
 } from 'lucide-react';
 import Markdown from 'react-markdown';
-import { auth } from '../lib/firebase';
+import { auth, getEntryMessages, saveUserJournalMessage } from '../lib/firebase';
 import { ErrorBanner } from './ErrorBanner';
 import { VoiceRecorderModal } from './VoiceRecorderModal';
 import { EmojiPickerPopover } from './EmojiPickerPopover';
 import { sanitizeUserFacingError } from '../lib/errorUtils';
-import { validateImageUpload } from '../lib/fileValidation';
+import { validateImageUpload, compressAndResizeImage } from '../lib/fileValidation';
 import type { JournalEntry, JournalMessage, ReflectionMode, JournalFontFamily, JournalTheme } from '../types';
 
 interface ReflectionSessionProps {
@@ -81,6 +86,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
   const [selectedFont, setSelectedFont] = useState<JournalFontFamily>(entry.fontFamily || 'serif');
   const [selectedTheme, setSelectedTheme] = useState<JournalTheme>(entry.theme || 'parchment');
   const [showStyleMenu, setShowStyleMenu] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Emoji Picker Popover State
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
@@ -280,38 +286,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
     }
   };
 
-  // Image Upload Handler with Strict MIME, Size, and Binary Magic Bytes Validation
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    setErrorMessage(null);
-
-    for (const file of Array.from(files)) {
-      const validation = await validateImageUpload(file);
-      if (!validation.valid) {
-        setErrorMessage(validation.error || 'Invalid file uploaded.');
-        continue;
-      }
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (reader.result) {
-          setAttachedPhotos((prev) => [...prev, reader.result as string]);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const removeAttachedPhoto = (index: number) => {
-    setAttachedPhotos((prev) => prev.filter((_, i) => i !== index));
-  };
-
   // Audio Playback Handler for message audio notes
   const toggleAudioPlayback = (audioId: string, url: string) => {
     if (playingAudioId === audioId && activeAudioRef.current) {
@@ -338,8 +312,127 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
     };
   };
 
+  // Photo Upload Handler with Canvas Downscaling & Compression
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setErrorMessage(null);
+
+    for (const file of Array.from(files)) {
+      const validation = await validateImageUpload(file);
+      if (!validation.valid) {
+        setErrorMessage(validation.error || 'Invalid file uploaded.');
+        continue;
+      }
+
+      try {
+        const compressedBase64 = await compressAndResizeImage(file, 1200, 0.8);
+        setAttachedPhotos((prev) => [...prev, compressedBase64]);
+      } catch (err: any) {
+        console.error('Failed to compress image:', err);
+        setErrorMessage('Failed to process uploaded photo.');
+      }
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachedPhoto = (index: number) => {
+    setAttachedPhotos((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const movePhotoLeft = (index: number) => {
+    if (index === 0) return;
+    setAttachedPhotos((prev) => {
+      const copy = [...prev];
+      const temp = copy[index - 1];
+      copy[index - 1] = copy[index];
+      copy[index] = temp;
+      return copy;
+    });
+  };
+
+  const movePhotoRight = (index: number) => {
+    if (index >= attachedPhotos.length - 1) return;
+    setAttachedPhotos((prev) => {
+      const copy = [...prev];
+      const temp = copy[index + 1];
+      copy[index + 1] = copy[index];
+      copy[index] = temp;
+      return copy;
+    });
+  };
+
+  // Export Handlers (Markdown & PDF)
+  const handleExportMarkdown = () => {
+    let mdContent = `# ${entry.title || 'Untitled Reflection'}\n\n`;
+    mdContent += `**Date:** ${new Date(entry.createdAt).toLocaleDateString()} ${new Date(entry.createdAt).toLocaleTimeString()}\n`;
+    if (entry.mood) mdContent += `**Mood:** ${entry.mood}\n`;
+    if (entry.location) mdContent += `**Location:** ${entry.location.description}\n`;
+    mdContent += `\n---\n\n`;
+
+    if (entry.summary) {
+      mdContent += `## AI Summary & Synthesis\n> ${entry.summary}\n\n`;
+    }
+
+    if (entry.keyTakeaways && entry.keyTakeaways.length > 0) {
+      mdContent += `### Core Insights:\n`;
+      entry.keyTakeaways.forEach((point) => {
+        mdContent += `- ${point}\n`;
+      });
+      mdContent += `\n---\n\n`;
+    }
+
+    mdContent += `## Reflection Stream\n\n`;
+    entry.messages.forEach((m) => {
+      const roleLabel = m.role === 'user' ? '**You**' : '**DearMe AI**';
+      const timeStr = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      mdContent += `### ${roleLabel} _(${timeStr})_\n${m.content}\n\n`;
+      if (m.audioNote?.transcript) {
+        mdContent += `> *Voice Note Transcript:* "${m.audioNote.transcript}"\n\n`;
+      }
+    });
+
+    const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(entry.title || 'reflection').replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPDF = () => {
+    window.print();
+  };
+
+  // Subcollection message loading on entry change
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSubcollection = async () => {
+      if (entry.id && entry.userId) {
+        const subMessages = await getEntryMessages(entry.userId, entry.id);
+        if (isMounted && subMessages.length > 0) {
+          onUpdateEntry({
+            ...entry,
+            messages: subMessages,
+          });
+        }
+      }
+    };
+    fetchSubcollection();
+    return () => { isMounted = false; };
+  }, [entry.id]);
+
   const handleSendMessage = async (customPrompt?: string) => {
     const textToSend = customPrompt || inputText;
+    if (textToSend.length > 8000) {
+      setErrorMessage('Reflection text exceeds maximum limit of 8,000 characters.');
+      return;
+    }
     if ((!textToSend.trim() && attachedPhotos.length === 0 && !pendingAudioNote) || isGenerating)
       return;
 
@@ -370,13 +463,16 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
     setIsGenerating(true);
 
     try {
+      // Targeted write: save user message to subcollection & update parent fields
+      await saveUserJournalMessage(entry.userId, entry.id, userMessage);
       await onUpdateEntry(updatedEntry);
       setInputText('');
       setAttachedPhotos([]);
       setPendingAudioNote(null);
 
+      // Real-time SSE response streaming
       const token = await auth.currentUser?.getIdToken();
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -397,24 +493,63 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         throw new Error(errData.error || `Server responded with ${response.status}`);
       }
 
-      const data = await response.json();
-      const modelMessage: JournalMessage = {
-        id: 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      const modelMessageId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+      let accumulatedReply = '';
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder('utf-8');
+
+      if (reader) {
+        let done = false;
+        while (!done) {
+          const { value, done: doneReading } = await reader.read();
+          done = doneReading;
+          if (value) {
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const dataStr = line.replace('data: ', '').trim();
+                if (dataStr === '[DONE]') continue;
+                try {
+                  const parsed = JSON.parse(dataStr);
+                  if (parsed.text) {
+                    accumulatedReply += parsed.text;
+                    const streamingModelMsg: JournalMessage = {
+                      id: modelMessageId,
+                      role: 'model',
+                      content: accumulatedReply,
+                      timestamp: Date.now(),
+                    };
+                    onUpdateEntry({
+                      ...updatedEntry,
+                      messages: [...newMessages, streamingModelMsg],
+                      updatedAt: Date.now(),
+                    });
+                  }
+                } catch (e) {}
+              }
+            }
+          }
+        }
+      }
+
+      const finalModelMessage: JournalMessage = {
+        id: modelMessageId,
         role: 'model',
-        content: data.reply,
+        content: accumulatedReply || 'I hear you. Could you elaborate a bit more on how that made you feel?',
         timestamp: Date.now(),
       };
 
-      const finalEntry: JournalEntry = {
+      // Save streamed AI response to Firestore subcollection
+      await saveUserJournalMessage(entry.userId, entry.id, finalModelMessage);
+      await onUpdateEntry({
         ...updatedEntry,
-        messages: [...newMessages, modelMessage],
+        messages: [...newMessages, finalModelMessage],
         updatedAt: Date.now(),
-      };
-
-      await onUpdateEntry(finalEntry);
+      });
     } catch (err: any) {
-      console.error('Failed to get Gemini response or save:', err);
-      setErrorMessage(sanitizeUserFacingError(err, 'Failed to save or generate reflection response. Please try again.'));
+      console.error('Failed to get streaming response or save:', err);
+      setErrorMessage(sanitizeUserFacingError(err, 'Failed to save or stream reflection response. Please try again.'));
     } finally {
       setIsGenerating(false);
     }
@@ -599,6 +734,42 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
           )}
 
           <div className="flex items-center gap-1">
+            {/* Export Dropdown Menu */}
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="p-1.5 rounded-md opacity-70 hover:opacity-100 hover:bg-black/5 cursor-pointer transition-colors"
+                title="Export Reflection (Markdown / PDF)"
+              >
+                <Download className="w-4 h-4 text-[#42b883]" />
+              </button>
+
+              {showExportMenu && (
+                <div className="absolute top-10 right-0 z-50 w-48 glass-panel text-slate-800 rounded-2xl shadow-xl border border-white/60 p-2 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2">
+                  <button
+                    onClick={() => {
+                      handleExportMarkdown();
+                      setShowExportMenu(false);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-tech-heading font-semibold hover:bg-white/80 transition-colors flex items-center gap-2 cursor-pointer text-slate-700"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-[#42b883]" />
+                    <span>Export as Markdown</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleExportPDF();
+                      setShowExportMenu(false);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-tech-heading font-semibold hover:bg-white/80 transition-colors flex items-center gap-2 cursor-pointer text-slate-700"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Print / Save as PDF</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button
               onClick={() => setIsSearchingLocation(!isSearchingLocation)}
               className="p-1.5 rounded-md opacity-70 hover:opacity-100 hover:bg-black/5 cursor-pointer transition-colors"
@@ -990,21 +1161,42 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
           {(attachedPhotos.length > 0 || pendingAudioNote) && (
             <div className="flex flex-wrap items-center gap-2 pb-2">
               {attachedPhotos.map((photo, idx) => (
-                <div key={idx} className="relative w-12 h-12 rounded-xl overflow-hidden border border-current/20 group">
-                  <img src={photo} alt="Preview" className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => removeAttachedPhoto(idx)}
-                    className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/60 text-white hover:bg-black"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
+                <div key={idx} className="relative group rounded-xl overflow-hidden border border-white/40 shadow-xs bg-black/5">
+                  <img src={photo} alt="Preview" className="w-14 h-14 object-cover" />
+                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 p-0.5">
+                    {idx > 0 && (
+                      <button
+                        onClick={() => movePhotoLeft(idx)}
+                        className="p-1 rounded bg-white/20 text-white hover:bg-white/40 cursor-pointer"
+                        title="Move Left"
+                      >
+                        <ChevronLeft className="w-3 h-3" />
+                      </button>
+                    )}
+                    {idx < attachedPhotos.length - 1 && (
+                      <button
+                        onClick={() => movePhotoRight(idx)}
+                        className="p-1 rounded bg-white/20 text-white hover:bg-white/40 cursor-pointer"
+                        title="Move Right"
+                      >
+                        <ChevronRight className="w-3 h-3" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => removeAttachedPhoto(idx)}
+                      className="p-1 rounded bg-rose-600/80 text-white hover:bg-rose-600 cursor-pointer"
+                      title="Remove Photo"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               ))}
               {pendingAudioNote && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#5A5A40] text-white text-xs font-sans">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#35495e] to-[#42b883] text-white text-xs font-tech-heading font-semibold shadow-xs">
                   <Volume2 className="w-3.5 h-3.5" />
                   <span>Voice Note ({pendingAudioNote.duration}s)</span>
-                  <button onClick={() => setPendingAudioNote(null)} className="p-0.5 hover:opacity-75">
+                  <button onClick={() => setPendingAudioNote(null)} className="p-0.5 hover:opacity-75 cursor-pointer">
                     <X className="w-3 h-3" />
                   </button>
                 </div>
@@ -1012,7 +1204,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
             </div>
           )}
 
-          <div className={`relative rounded-[28px] border focus-within:ring-2 focus-within:ring-[#5A5A40]/25 transition-all p-3.5 sm:p-4 shadow-sm ${themePalette.composerContainer}`}>
+          <div className={`relative rounded-[28px] border focus-within:ring-2 focus-within:ring-[#42b883]/30 transition-all p-3.5 sm:p-4 shadow-sm ${themePalette.composerContainer}`}>
             <textarea
               id="input-reflection-message"
               ref={textareaRef}
@@ -1040,8 +1232,8 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-2 rounded-full opacity-70 hover:opacity-100 hover:bg-black/5 transition-colors cursor-pointer"
-                  title="Attach Photo (JPEG, PNG, WEBP, GIF < 5MB)"
+                  className="p-2 rounded-full opacity-70 hover:opacity-100 hover:bg-black/5 transition-colors cursor-pointer text-[#42b883]"
+                  title="Attach Photos (JPEG, PNG, WEBP, GIF < 5MB)"
                 >
                   <ImageIcon className="w-4 h-4" />
                 </button>
@@ -1056,15 +1248,25 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
 
                 <button
                   onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
-                  className="p-2 rounded-full opacity-70 hover:opacity-100 hover:bg-black/5 transition-colors cursor-pointer text-[#5A5A40]"
+                  className="p-2 rounded-full opacity-70 hover:opacity-100 hover:bg-black/5 transition-colors cursor-pointer text-[#42b883]"
                   title="Insert Emojis"
                 >
                   <Smile className="w-4 h-4" />
                 </button>
 
-                <span className="text-[10px] uppercase tracking-wider opacity-60 font-sans ml-2">
-                  <span className="hidden sm:inline">Cmd/Ctrl + Enter to send</span>
-                </span>
+                {/* Live Character Counter & Warning */}
+                <div className="ml-2 flex items-center gap-2">
+                  <span className={`text-[10px] uppercase tracking-wider font-tech-heading font-semibold ${
+                    inputText.length > 7000 ? 'text-amber-600 font-bold animate-pulse' : 'opacity-60'
+                  }`}>
+                    {inputText.length} / 8000
+                  </span>
+                  {inputText.length > 7000 && (
+                    <span className="text-[10px] text-amber-600 font-medium hidden sm:inline">
+                      Approaching character limit
+                    </span>
+                  )}
+                </div>
               </div>
 
               <button

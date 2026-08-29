@@ -1,33 +1,47 @@
 import React from 'react';
-import { Feather, Plus, LogOut, ShieldCheck, User as UserIcon } from 'lucide-react';
-import type { UserProfile } from '../types';
+import { Flame, Plus, LogOut, ShieldCheck, User as UserIcon, BarChart2, HelpCircle } from 'lucide-react';
+import type { JournalEntry, UserProfile } from '../types';
 
 interface NavbarProps {
   user: UserProfile;
+  entries?: JournalEntry[];
   onNewEntry: () => void;
   onSignOut: () => void;
   isSaving: boolean;
-  onToggleSidebar?: () => void;
-  isSidebarOpen?: boolean;
+  onOpenInsights?: () => void;
+  onOpenOnboarding?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   user,
+  entries = [],
   onNewEntry,
   onSignOut,
   isSaving,
+  onOpenInsights,
+  onOpenOnboarding,
 }) => {
+  const calculateStreak = () => {
+    if (!entries || entries.length === 0) return 0;
+    const uniqueDays = new Set(
+      entries.map((e) => new Date(e.createdAt).toISOString().split('T')[0])
+    );
+    return uniqueDays.size;
+  };
+
+  const streak = calculateStreak();
+
   return (
-    <header className="h-16 border-b border-[#F0EDE8] bg-[#FDFCFB]/95 backdrop-blur-md px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30">
+    <header className="h-16 border-b border-white/30 bg-white/70 backdrop-blur-xl px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-xs">
       {/* Brand & App Title */}
       <div className="flex items-center gap-3.5">
-        <div className="w-9 h-9 rounded-full bg-[#5A5A40] text-white flex items-center justify-center shadow-2xs">
-          <Feather className="w-4 h-4 text-[#E6E1D6]" />
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#35495e] to-[#42b883] text-white flex items-center justify-center shadow-xs">
+          <span className="font-tech-heading font-black text-sm tracking-tighter text-white">DM</span>
         </div>
         <div>
-          <span className="font-serif font-semibold text-lg text-[#5A5A40] tracking-tight leading-none block">DearMe</span>
-          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-[#A8A294] font-sans mt-0.5">
-            <ShieldCheck className="w-3 h-3 text-[#5A5A40]" />
+          <span className="font-tech-heading font-bold text-lg text-slate-800 tracking-tight leading-none block">DearMe</span>
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-slate-500 font-sans-body mt-0.5">
+            <ShieldCheck className="w-3 h-3 text-[#42b883]" />
             <span>Private Space ({user.email?.split('@')[0]})</span>
           </div>
         </div>
@@ -35,11 +49,36 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Action Controls & Profile */}
       <div className="flex items-center gap-2 sm:gap-4">
-        {/* Firestore Sync Indicator */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-[#F5F2ED] text-[10px] font-sans uppercase tracking-wider font-medium text-[#5A5A40] border border-[#E6E1D6]">
-          <span className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-amber-600 animate-ping' : 'bg-[#5A5A40]'}`} />
-          <span>{isSaving ? 'Saving to Firestore...' : 'Saved to Firestore'}</span>
+        {/* Streak Counter Pill */}
+        <div
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full glass-panel border border-amber-500/30 text-amber-600 text-xs font-tech-heading font-bold shadow-2xs"
+          title={`${streak} unique reflection days logged`}
+        >
+          <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500 animate-pulse" />
+          <span>{streak} Day Streak</span>
         </div>
+
+        {/* Insights / Mood Trends Button */}
+        {onOpenInsights && (
+          <button
+            onClick={onOpenInsights}
+            className="p-2 rounded-full glass-panel hover:bg-white/80 transition-colors text-slate-700 cursor-pointer"
+            title="View Mood Trends & Insights"
+          >
+            <BarChart2 className="w-4 h-4 text-[#42b883]" />
+          </button>
+        )}
+
+        {/* Onboarding Help Button */}
+        {onOpenOnboarding && (
+          <button
+            onClick={onOpenOnboarding}
+            className="p-2 rounded-full glass-panel hover:bg-white/80 transition-colors text-slate-700 cursor-pointer"
+            title="Take Tooltip Tour"
+          >
+            <HelpCircle className="w-4 h-4 text-indigo-500" />
+          </button>
+        )}
 
         {/* New Session Button */}
         <button

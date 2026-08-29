@@ -20,12 +20,19 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
   const [transcript, setTranscript] = useState('');
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasSpeechRecognitionSupport, setHasSpeechRecognitionSupport] = useState(true);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<any>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    setHasSpeechRecognitionSupport(!!SpeechRecognition);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) {
@@ -256,9 +263,14 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({
 
         {/* Live Speech-to-Text Transcription Box */}
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between text-xs font-sans text-[#A8A294]">
-            <span className="font-semibold uppercase tracking-wider text-[10px]">Live Speech-To-Text Transcription</span>
-            {transcript && <span className="text-[10px] text-[#5A5A40]">{transcript.split(' ').length} words</span>}
+          {!hasSpeechRecognitionSupport && (
+            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-[11px] font-sans-body">
+              Note: Live speech-to-text is not supported in this browser. Audio recording is fully functional!
+            </div>
+          )}
+          <div className="flex items-center justify-between text-xs font-tech-heading text-slate-400">
+            <span className="font-bold uppercase tracking-wider text-[10px]">Live Speech-To-Text Transcription</span>
+            {transcript && <span className="text-[10px] text-[#42b883] font-medium">{transcript.split(' ').length} words</span>}
           </div>
           <textarea
             value={transcript}

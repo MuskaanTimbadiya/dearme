@@ -7,6 +7,8 @@ import { Navbar } from './components/Navbar';
 import { SidebarHistory } from './components/SidebarHistory';
 import { ReflectionSession } from './components/ReflectionSession';
 import { AdminDashboard } from './components/AdminDashboard';
+import { MoodTrendsModal } from './components/MoodTrendsModal';
+import { OnboardingTour } from './components/OnboardingTour';
 import { ErrorBanner } from './components/ErrorBanner';
 import { sanitizeUserFacingError } from './lib/errorUtils';
 import { Feather } from 'lucide-react';
@@ -25,6 +27,17 @@ export default function App() {
     errorMessage: string;
   };
   const [failedOp, setFailedOp] = useState<FailedOperation | null>(null);
+  const [isInsightsOpen, setIsInsightsOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+
+  useEffect(() => {
+    if (currentUser) {
+      const completed = localStorage.getItem('dearme_onboarding_completed');
+      if (!completed) {
+        setIsOnboardingOpen(true);
+      }
+    }
+  }, [currentUser]);
 
   // Auth state subscriber
   useEffect(() => {
@@ -145,21 +158,48 @@ export default function App() {
     }
   };
 
-  // Delete entry
-  const handleDeleteEntry = async (entryId: string) => {
+  const [pendingDelete, setPendingDelete] = useState<{
+    entry: JournalEntry;
+    timer: any;
+  } | null>(null);
+
+  // Soft Delete with 5-Second Undo Window
+  const handleDeleteEntry = (entryId: string) => {
     if (!currentUser) return;
-    try {
-      await deleteUserJournalEntry(currentUser.uid, entryId);
-      const remaining = entries.filter((e) => e.id !== entryId);
-      setEntries(remaining);
-      if (selectedEntryId === entryId) {
-        setSelectedEntryId(remaining.length > 0 ? remaining[0].id : null);
-      }
-      setFailedOp(null);
-    } catch (err: any) {
-      const sanitized = sanitizeUserFacingError(err, 'Failed to delete reflection entry. Please try again.');
-      setFailedOp({ type: 'delete', payload: null, entryId, errorMessage: sanitized });
+    const targetEntry = entries.find((e) => e.id === entryId);
+    if (!targetEntry) return;
+
+    // Immediately remove from UI
+    const remaining = entries.filter((e) => e.id !== entryId);
+    setEntries(remaining);
+    if (selectedEntryId === entryId) {
+      setSelectedEntryId(remaining.length > 0 ? remaining[0].id : null);
     }
+
+    if (pendingDelete) {
+      clearTimeout(pendingDelete.timer);
+      deleteUserJournalEntry(currentUser.uid, pendingDelete.entry.id).catch(() => {});
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        await deleteUserJournalEntry(currentUser.uid, entryId);
+        setPendingDelete(null);
+      } catch (err: any) {
+        const sanitized = sanitizeUserFacingError(err, 'Failed to delete reflection entry.');
+        setFailedOp({ type: 'delete', payload: null, entryId, errorMessage: sanitized });
+      }
+    }, 5000);
+
+    setPendingDelete({ entry: targetEntry, timer });
+  };
+
+  const handleUndoDelete = () => {
+    if (!pendingDelete) return;
+    clearTimeout(pendingDelete.timer);
+    setEntries((prev) => [pendingDelete.entry, ...prev]);
+    setSelectedEntryId(pendingDelete.entry.id);
+    setPendingDelete(null);
   };
 
   // Toggle favorite
@@ -213,9 +253,23 @@ export default function App() {
       {/* Top Navigation */}
       <Navbar
         user={currentUser}
+        entries={entries}
         onNewEntry={handleCreateNewEntry}
         onSignOut={handleSignOut}
         isSaving={isSaving}
+        onOpenInsights={() => setIsInsightsOpen(true)}
+        onOpenOnboarding={() => setIsOnboardingOpen(true)}
+      />
+
+      <MoodTrendsModal
+        isOpen={isInsightsOpen}
+        onClose={() => setIsInsightsOpen(false)}
+        entries={entries}
+      />
+
+      <OnboardingTour
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
       />
       {currentUser.isAdmin && (
         <div className="bg-[#5A5A40] text-[#E6E1D6] px-4 py-1.5 flex items-center justify-between shrink-0 text-xs font-sans">
@@ -272,6 +326,18 @@ export default function App() {
           </div>
         )}
       </div>
+      {/* Soft Delete Undo Toast */}
+      {pendingDelete && (
+        <div className="fixed bottom-6 right-6 z-50 glass-panel-dark text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 border border-white/20 animate-in fade-in slide-in-from-bottom-3">
+          <span className="text-xs font-sans-body">Reflection entry queued for deletion.</span>
+          <button
+            onClick={handleUndoDelete}
+            className="px-3 py-1 rounded-full btn-vue-primary text-xs font-tech-heading font-bold uppercase tracking-wider cursor-pointer shadow-xs"
+          >
+            Undo (5s)
+          </button>
+        </div>
+      )}
     </div>
   );
 }

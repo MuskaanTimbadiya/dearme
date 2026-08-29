@@ -17,8 +17,12 @@ import {
   getDocs,
   deleteDoc,
   updateDoc,
+  limit,
+  startAfter,
+  QueryDocumentSnapshot,
+  DocumentData,
 } from 'firebase/firestore';
-import type { JournalEntry, UserProfile } from '../types';
+import type { JournalEntry, JournalMessage, UserProfile } from '../types';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Initialize Firebase
@@ -115,37 +119,109 @@ export function sanitizeFirestorePayload<T>(obj: T): T {
 // Firestore Helpers - Strict User Isolation under /users/{userId}/entries/{entryId}
 export const saveUserJournalEntry = async (
   userId: string,
-  entry: JournalEntry
+  entry: Partial<JournalEntry> & { id: string }
 ): Promise<void> => {
   if (!userId) throw new Error('User ID is required to save entry');
   const entryRef = doc(db, 'users', userId, 'entries', entry.id);
-  const cleanPayload = sanitizeFirestorePayload(entry);
+
+  // Omit embedded messages array when writing parent document to avoid document size bloat
+  const { messages, ...parentData } = entry as any;
+  const cleanPayload = sanitizeFirestorePayload(parentData);
   await setDoc(entryRef, cleanPayload, { merge: true });
+};
+
+export const saveUserJournalMessage = async (
+  userId: string,
+  entryId: string,
+  message: JournalMessage
+): Promise<void> => {
+  if (!userId || !entryId || !message?.id) return;
+  const messageRef = doc(db, 'users', userId, 'entries', entryId, 'messages', message.id);
+  const cleanPayload = sanitizeFirestorePayload(message);
+  await setDoc(messageRef, cleanPayload, { merge: true });
+};
+
+export interface PaginatedResult<T> {
+  items: T[];
+  lastDocSnap: QueryDocumentSnapshot<DocumentData> | null;
+  hasMore: boolean;
+}
+
+export const getUserJournalEntriesPaginated = async (
+  userId: string,
+  limitCount = 20,
+  lastDocSnap?: QueryDocumentSnapshot<DocumentData> | null
+): Promise<PaginatedResult<JournalEntry>> => {
+  if (!userId) return { items: [], lastDocSnap: null, hasMore: false };
+  try {
+    const entriesRef = collection(db, 'users', userId, 'entries');
+    let q = query(entriesRef, orderBy('updatedAt', 'desc'), limit(limitCount));
+    if (lastDocSnap) {
+      q = query(entriesRef, orderBy('updatedAt', 'desc'), startAfter(lastDocSnap), limit(limitCount));
+    }
+    const snapshot = await getDocs(q);
+    const items: JournalEntry[] = [];
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data() as JournalEntry;
+      items.push({ ...data, messages: data.messages || [] });
+    });
+    const lastSnap = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : null;
+    return {
+      items,
+      lastDocSnap: lastSnap,
+      hasMore: snapshot.docs.length === limitCount,
+    };
+  } catch (error) {
+    console.error('Error fetching user journal entries:', error);
+    const entriesRef = collection(db, 'users', userId, 'entries');
+    const snapshot = await getDocs(entriesRef);
+    const items: JournalEntry[] = [];
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data() as JournalEntry;
+      items.push({ ...data, messages: data.messages || [] });
+    });
+    items.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    return { items, lastDocSnap: null, hasMore: false };
+  }
 };
 
 export const getUserJournalEntries = async (
   userId: string
 ): Promise<JournalEntry[]> => {
-  if (!userId) return [];
+  const result = await getUserJournalEntriesPaginated(userId, 100);
+  return result.items;
+};
+
+export const getEntryMessages = async (
+  userId: string,
+  entryId: string
+): Promise<JournalMessage[]> => {
+  if (!userId || !entryId) return [];
   try {
-    const entriesRef = collection(db, 'users', userId, 'entries');
-    const q = query(entriesRef, orderBy('updatedAt', 'desc'));
+    const messagesRef = collection(db, 'users', userId, 'entries', entryId, 'messages');
+    const q = query(messagesRef, orderBy('timestamp', 'asc'));
     const snapshot = await getDocs(q);
-    const entries: JournalEntry[] = [];
-    snapshot.forEach((docSnap) => {
-      entries.push(docSnap.data() as JournalEntry);
-    });
-    return entries;
-  } catch (error) {
-    console.error('Error fetching user journal entries:', error);
-    // If indexing or order issue occurs, fallback to unconstrained read and sort in-memory
-    const entriesRef = collection(db, 'users', userId, 'entries');
-    const snapshot = await getDocs(entriesRef);
-    const entries: JournalEntry[] = [];
-    snapshot.forEach((docSnap) => {
-      entries.push(docSnap.data() as JournalEntry);
-    });
-    return entries.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    if (!snapshot.empty) {
+      const messages: JournalMessage[] = [];
+      snapshot.forEach((docSnap) => {
+        messages.push(docSnap.data() as JournalMessage);
+      });
+      return messages;
+    }
+
+    // Legacy fallback: check parent document for inline messages array
+    const entryRef = doc(db, 'users', userId, 'entries', entryId);
+    const parentSnap = await getDoc(entryRef);
+    if (parentSnap.exists()) {
+      const parentData = parentSnap.data();
+      if (Array.isArray(parentData?.messages) && parentData.messages.length > 0) {
+        return parentData.messages as JournalMessage[];
+      }
+    }
+    return [];
+  } catch (err) {
+    console.error('Failed to fetch subcollection messages:', err);
+    return [];
   }
 };
 
@@ -165,6 +241,6 @@ export const updateUserEntryFields = async (
 ): Promise<void> => {
   if (!userId || !entryId) return;
   const entryRef = doc(db, 'users', userId, 'entries', entryId);
-  const cleanPartial = sanitizeFirestorePayload(partial);
+  const { messages, ...cleanPartial } = sanitizeFirestorePayload(partial as any);
   await updateDoc(entryRef, cleanPartial);
 };

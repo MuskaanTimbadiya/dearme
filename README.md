@@ -53,10 +53,11 @@
 
 | Threat Zone | Identified Risks | Countermeasure & Implementation |
 | :--- | :--- | :--- |
-| **Input Surfaces** | Malicious payloads, NoSQL/Firestore injection, oversized prompts | Top-level body parsing with strict schema validation, input slicing, null-safe destructuring, and payload sanitation. |
+| **Input Surfaces** | Malicious payloads, NoSQL/Firestore injection, oversized prompts | Top-level body parsing with strict schema validation, input slicing, null-safe destructuring, client 8k character caps, and Canvas image downscaling (1200px max JPEG). |
+| **Rate Limiting & Memory Hygiene** | Distributed DoS attacks, memory leaks | In-memory IP & User sliding window rate limiters with 10-min automated `setInterval` eviction cleanup. *(Note: For multi-instance Cloud Run deployments, back with Redis/Memorystore or Firestore TTL counters).* |
 | **Planning & Reasoning** | Prompt injection, goal hijacking, tone disruption | System prompt boundaries, instruction hardening, and temperature stabilization (0.7). |
-| **Tool Execution** | API credential exposure, SSRF, backend exhaustion | Server-side Gemini proxy (`/api/chat`, `/api/summarize`), Google Places API proxy (`/api/places/autocomplete`), zero client-side API key exposure. |
-| **Memory & State** | Cross-user data leakage, unauthorized reads/writes, silent write failures | Path-scoped Firestore security rules (`request.auth.uid == userId`), strict RBAC checks for admins, `sanitizeFirestorePayload` (stripping `undefined`), and strict input-to-save transaction verification. |
+| **Tool Execution** | API credential exposure, SSRF, backend exhaustion | Server-side Gemini proxy (`/api/chat`, `/api/chat/stream`, `/api/summarize`), Google Places API proxy (`/api/places/autocomplete`), zero client-side API key exposure. |
+| **Memory & State** | Cross-user data leakage, unauthorized reads/writes, silent write failures | Path-scoped Firestore security rules (`request.auth.uid == userId`), message subcollections (`/entries/{entryId}/messages/{messageId}`), `sanitizeFirestorePayload` (stripping `undefined`), and strict input-to-save transaction verification. |
 | **Inter-System Communication** | Token theft, secret leak in VCS, PII leak in webhooks | Google Cloud Secret Manager / env var injection for `GEMINI_API_KEY`, `GOOGLE_MAPS_API_KEY`, and `EXTERNAL_WEBHOOK_URL`. Strict PII stripping on asynchronous webhook notifications. |
 
 ---

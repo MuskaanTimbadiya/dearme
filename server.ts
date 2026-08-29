@@ -15,94 +15,7 @@ dotenv.config();
 // -------------------------------------------------------------
 const PRINTABLE_TEXT_REGEX = /^[^\x00-\x1F\x7F]+$/;
 
-interface ValidationRule {
-  field: string;
-  type: 'string' | 'array' | 'object' | 'number' | 'boolean';
-  required?: boolean;
-  minLength?: number;
-  maxLength?: number;
-  pattern?: RegExp;
-  enum?: any[];
-  itemsSchema?: ValidationRule[];
-}
-
-function validatePayload(
-  data: any,
-  rules: ValidationRule[],
-  allowUnknownKeys = false
-): { valid: boolean; errors: string[] } {
-  const errors: string[] = [];
-
-  if (!data || typeof data !== 'object' || Array.isArray(data)) {
-    return { valid: false, errors: ['Request payload must be a JSON object.'] };
-  }
-
-  const allowedKeys = new Set(rules.map((r) => r.field));
-  if (!allowUnknownKeys) {
-    const unknownKeys = Object.keys(data).filter((k) => !allowedKeys.has(k));
-    if (unknownKeys.length > 0) {
-      errors.push(`Unexpected properties not allowed in strict schema: ${unknownKeys.join(', ')}.`);
-    }
-  }
-
-  for (const rule of rules) {
-    const val = data[rule.field];
-
-    if (val === undefined || val === null || val === '') {
-      if (rule.required) {
-        errors.push(`Field '${rule.field}' is required.`);
-      }
-      continue;
-    }
-
-    if (rule.type === 'array') {
-      if (!Array.isArray(val)) {
-        errors.push(`Field '${rule.field}' must be an array.`);
-        continue;
-      }
-      if (rule.minLength !== undefined && val.length < rule.minLength) {
-        errors.push(`Field '${rule.field}' array length must be at least ${rule.minLength}.`);
-      }
-      if (rule.maxLength !== undefined && val.length > rule.maxLength) {
-        errors.push(`Field '${rule.field}' array length cannot exceed ${rule.maxLength}.`);
-      }
-
-      if (rule.itemsSchema) {
-        val.forEach((item: any, idx: number) => {
-          const subValidation = validatePayload(item, rule.itemsSchema!, allowUnknownKeys);
-          if (!subValidation.valid) {
-            subValidation.errors.forEach((e) =>
-              errors.push(`Field '${rule.field}[${idx}]': ${e}`)
-            );
-          }
-        });
-      }
-    } else if (rule.type === 'string') {
-      if (typeof val !== 'string') {
-        errors.push(`Field '${rule.field}' must be a string.`);
-        continue;
-      }
-      if (rule.minLength !== undefined && val.length < rule.minLength) {
-        errors.push(`Field '${rule.field}' length must be at least ${rule.minLength} characters.`);
-      }
-      if (rule.maxLength !== undefined && val.length > rule.maxLength) {
-        errors.push(`Field '${rule.field}' length cannot exceed ${rule.maxLength} characters.`);
-      }
-      if (rule.pattern && !rule.pattern.test(val)) {
-        errors.push(`Field '${rule.field}' does not match the required format.`);
-      }
-      if (rule.enum && !rule.enum.includes(val)) {
-        errors.push(`Field '${rule.field}' must be one of: ${rule.enum.join(', ')}.`);
-      }
-    } else {
-      if (typeof val !== rule.type) {
-        errors.push(`Field '${rule.field}' must be of type ${rule.type}.`);
-      }
-    }
-  }
-
-  return { valid: errors.length === 0, errors };
-}
+import { validatePayload, type ValidationRule } from './src/lib/payloadValidation';
 
 // Configurable Rate Limiting Options
 const RATE_LIMIT_CONFIG = {
@@ -227,6 +140,21 @@ const MODEL_FALLBACK_LADDER = [
   'gemini-3.7-flash',
 ];
 
+// Periodic cleanup timer (runs every 10 minutes) to evict expired records from memory maps
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of ipRateStore.entries()) {
+    const valid = cleanWindowTimestamps(record.timestamps, RATE_LIMIT_CONFIG.publicWindowMs, now);
+    if (valid.length === 0) ipRateStore.delete(key);
+    else ipRateStore.set(key, { timestamps: valid });
+  }
+  for (const [key, record] of userRateStore.entries()) {
+    const valid = cleanWindowTimestamps(record.timestamps, RATE_LIMIT_CONFIG.authUserWindowMs, now);
+    if (valid.length === 0) userRateStore.delete(key);
+    else userRateStore.set(key, { timestamps: valid });
+  }
+}, 10 * 60 * 1000);
+
 async function generateContentWithFallback(params: {
   contents: any[];
   config?: any;
@@ -249,6 +177,30 @@ async function generateContentWithFallback(params: {
   }
 
   throw lastError || new Error('All models in fallback ladder failed.');
+}
+
+async function generateContentStreamWithFallback(params: {
+  contents: any[];
+  config?: any;
+}) {
+  const ai = getAI();
+  let lastError: any = null;
+
+  for (const model of MODEL_FALLBACK_LADDER) {
+    try {
+      const responseStream = await ai.models.generateContentStream({
+        model,
+        contents: params.contents,
+        config: params.config,
+      });
+      return { responseStream, modelUsed: model };
+    } catch (error: any) {
+      console.warn(`[Gemini Stream Fallback] Model ${model} encountered an issue:`, error?.message || error);
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error('All models in streaming fallback ladder failed.');
 }
 
 async function startServer() {
@@ -419,6 +371,91 @@ Tone and style:
           ? 'Gemini API key is not configured.'
           : 'An unexpected error occurred while generating your reflection response. Please try again.',
       });
+    }
+  });
+
+  app.post('/api/chat/stream', requireAuth, authUserRateLimiter, async (req, res) => {
+    try {
+      const rules: ValidationRule[] = [
+        {
+          field: 'messages',
+          type: 'array',
+          required: true,
+          minLength: 1,
+          maxLength: 100,
+          itemsSchema: [
+            { field: 'role', type: 'string', required: true, enum: ['user', 'model', 'assistant'] },
+            { field: 'content', type: 'string', required: true, minLength: 1, maxLength: 10000 },
+          ],
+        },
+        { field: 'mode', type: 'string', required: false, enum: ['reflective', 'brainstorm', 'actionable', 'summary'] },
+        { field: 'entryTitle', type: 'string', required: false, maxLength: 100 },
+      ];
+
+      const validation = validatePayload(req.body, rules, false);
+      if (!validation.valid) {
+        return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: validation.errors });
+      }
+
+      const { messages, mode = 'reflective', entryTitle = '' } = req.body;
+
+      let systemInstruction = `You are a thoughtful, empathetic, and insightful AI Reflection Companion and Journal Guide.
+Your purpose is to help the user unpack their thoughts, feelings, plans, and experiences with clarity and warmth.
+
+Tone and style:
+- Empathetic, supportive, constructive, and grounded.
+- Avoid generic cliches or unsolicited patronizing advice.
+- When the user shares something deep or challenging, validate their perspective before gently offering reframing or reflective questions.
+- Format responses clearly with markdown formatting (bullet points, clear paragraphs, bold emphasis where helpful).`;
+
+      if (mode === 'brainstorm') {
+        systemInstruction += `\nCurrent focus: Brainstorming & Perspective Exploration. Help the user explore diverse angles, creative alternatives, unexpected possibilities, and creative solutions.`;
+      } else if (mode === 'actionable') {
+        systemInstruction += `\nCurrent focus: Clarity & Actionable Next Steps. Help distill the user's thoughts into clear, realistic micro-steps, boundaries, or practical experiments.`;
+      } else if (mode === 'summary') {
+        systemInstruction += `\nCurrent focus: Synthesizing & Core Themes. Help identify underlying emotional patterns, recurring themes, and core insights from what they wrote.`;
+      } else {
+        systemInstruction += `\nCurrent focus: Gentle Socratic Reflection. Encourage deeper self-awareness, ask 1-2 open-ended reflective questions, and highlight positive moments or growth edges.`;
+      }
+
+      if (entryTitle) {
+        systemInstruction += `\nJournal Entry Topic/Title: "${String(entryTitle).slice(0, 100)}"`;
+      }
+
+      const formattedContents = messages.map((m: { role: string; content: string }) => ({
+        role: m.role === 'model' || m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: String(m.content || '').slice(0, 8000) }],
+      }));
+
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      const { responseStream, modelUsed } = await generateContentStreamWithFallback({
+        contents: formattedContents,
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+        },
+      });
+
+      for await (const chunk of responseStream) {
+        const text = chunk.text;
+        if (text) {
+          res.write(`data: ${JSON.stringify({ text, modelUsed })}\n\n`);
+        }
+      }
+
+      res.write('data: [DONE]\n\n');
+      res.end();
+    } catch (error: any) {
+      console.error('[API /api/chat/stream Internal Error Detail]:', error?.stack || error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'An unexpected error occurred while streaming response.' });
+      } else {
+        res.write(`data: ${JSON.stringify({ error: error?.message || 'Streaming failed' })}\n\n`);
+        res.end();
+      }
     }
   });
 
