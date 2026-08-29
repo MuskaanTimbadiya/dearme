@@ -13,7 +13,6 @@ dotenv.config();
 // -------------------------------------------------------------
 // STRICT SCHEMA VALIDATION UTILITIES
 // -------------------------------------------------------------
-const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const PRINTABLE_TEXT_REGEX = /^[^\x00-\x1F\x7F]+$/;
 
 interface ValidationRule {
@@ -107,12 +106,6 @@ function validatePayload(
 
 // Configurable Rate Limiting Options
 const RATE_LIMIT_CONFIG = {
-  authIpWindowMs: Number(process.env.RATE_LIMIT_AUTH_IP_WINDOW_MS) || 15 * 60 * 1000,
-  authIpMax: Number(process.env.RATE_LIMIT_AUTH_IP_MAX) || 10,
-  authAccountMaxAttempts: Number(process.env.RATE_LIMIT_AUTH_ACCOUNT_MAX_ATTEMPTS) || 5,
-  authInitialBackoffMs: Number(process.env.RATE_LIMIT_AUTH_INITIAL_BACKOFF_MS) || 2000,
-  authMaxBackoffMs: Number(process.env.RATE_LIMIT_AUTH_MAX_BACKOFF_MS) || 60000,
-
   publicWindowMs: Number(process.env.RATE_LIMIT_PUBLIC_WINDOW_MS) || 60 * 1000,
   publicMax: Number(process.env.RATE_LIMIT_PUBLIC_MAX) || 60,
 
@@ -124,15 +117,8 @@ interface WindowRecord {
   timestamps: number[];
 }
 
-interface AccountAuthRecord {
-  failedAttempts: number;
-  lastFailureTime: number;
-  nextAllowedTime: number;
-}
-
 const ipRateStore = new Map<string, WindowRecord>();
 const userRateStore = new Map<string, WindowRecord>();
-const authAccountStore = new Map<string, AccountAuthRecord>();
 
 function cleanWindowTimestamps(timestamps: number[], windowMs: number, now: number): number[] {
   return timestamps.filter((t) => now - t < windowMs);
@@ -185,78 +171,6 @@ const authUserRateLimiter = (req: express.Request, res: express.Response, next: 
 
   timestamps.push(now);
   userRateStore.set(userId, { timestamps });
-  next();
-};
-
-// 3. Stricter Auth Route Rate Limiter (Per IP + Per Account with Exponential Backoff)
-const authRouteRateLimiter = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const ip = req.ip || req.socket.remoteAddress || 'unknown-ip';
-  const accountIdentifier = String(req.body?.email || req.body?.username || req.body?.account || '').toLowerCase().trim();
-  const now = Date.now();
-
-  const ipWindowMs = RATE_LIMIT_CONFIG.authIpWindowMs;
-  const ipMax = RATE_LIMIT_CONFIG.authIpMax;
-  let ipRecord = ipRateStore.get(`auth:${ip}`);
-  const ipTimestamps = cleanWindowTimestamps(ipRecord?.timestamps || [], ipWindowMs, now);
-
-  if (ipTimestamps.length >= ipMax) {
-    const oldest = ipTimestamps[0];
-    const retryAfterSec = Math.ceil((oldest + ipWindowMs - now) / 1000);
-    res.setHeader('Retry-After', String(retryAfterSec));
-    return res.status(429).json({
-      error: 'Too Many Requests',
-      message: `Authentication attempt limit exceeded for this IP. Please try again in ${retryAfterSec} seconds.`,
-    });
-  }
-
-  if (accountIdentifier) {
-    const accRecord = authAccountStore.get(accountIdentifier);
-    if (accRecord && now < accRecord.nextAllowedTime) {
-      const waitTimeSec = Math.ceil((accRecord.nextAllowedTime - now) / 1000);
-      res.setHeader('Retry-After', String(waitTimeSec));
-      return res.status(429).json({
-        error: 'Too Many Requests',
-        message: `Account is temporarily experiencing exponential backoff due to repeated failed authentication attempts. Please wait ${waitTimeSec} seconds before retrying.`,
-        backoffSeconds: waitTimeSec,
-        failedAttempts: accRecord.failedAttempts,
-      });
-    }
-  }
-
-  ipTimestamps.push(now);
-  ipRateStore.set(`auth:${ip}`, { timestamps: ipTimestamps });
-
-  (res as any).recordAuthOutcome = (success: boolean) => {
-    if (!accountIdentifier) return;
-
-    if (success) {
-      authAccountStore.delete(accountIdentifier);
-    } else {
-      const record = authAccountStore.get(accountIdentifier) || {
-        failedAttempts: 0,
-        lastFailureTime: now,
-        nextAllowedTime: 0,
-      };
-
-      const failures = record.failedAttempts + 1;
-      let delayMs = 0;
-
-      if (failures >= RATE_LIMIT_CONFIG.authAccountMaxAttempts) {
-        const exponent = failures - RATE_LIMIT_CONFIG.authAccountMaxAttempts;
-        delayMs = Math.min(
-          RATE_LIMIT_CONFIG.authInitialBackoffMs * Math.pow(2, exponent),
-          RATE_LIMIT_CONFIG.authMaxBackoffMs
-        );
-      }
-
-      authAccountStore.set(accountIdentifier, {
-        failedAttempts: failures,
-        lastFailureTime: now,
-        nextAllowedTime: now + delayMs,
-      });
-    }
-  };
-
   next();
 };
 
@@ -366,65 +280,6 @@ async function startServer() {
   };
 
   // -------------------------------------------------------------
-  // AUTH ROUTES
-  // -------------------------------------------------------------
-  app.post('/api/auth/login', authRouteRateLimiter, async (req, res) => {
-    const rules: ValidationRule[] = [
-      { field: 'email', type: 'string', required: true, minLength: 3, maxLength: 254, pattern: EMAIL_REGEX },
-      { field: 'password', type: 'string', required: true, minLength: 1, maxLength: 128 },
-    ];
-    const validation = validatePayload(req.body, rules, false);
-    if (!validation.valid) {
-      (res as any).recordAuthOutcome(false);
-      return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: validation.errors });
-    }
-
-    const { email } = req.body;
-    try {
-      const user = await adminAuth.getUserByEmail(email);
-      if (user) {
-        (res as any).recordAuthOutcome(true);
-        return res.json({ status: 'success', uid: user.uid, email: user.email });
-      } else {
-        (res as any).recordAuthOutcome(false);
-        return res.status(401).json({ error: 'Invalid authentication credentials.' });
-      }
-    } catch (err: any) {
-      console.error('[Auth Login Error Detail]:', err?.stack || err);
-      (res as any).recordAuthOutcome(false);
-      return res.status(401).json({ error: 'Authentication failed. Check credentials.' });
-    }
-  });
-
-  app.post('/api/auth/signup', authRouteRateLimiter, async (req, res) => {
-    const rules: ValidationRule[] = [
-      { field: 'email', type: 'string', required: true, minLength: 3, maxLength: 254, pattern: EMAIL_REGEX },
-    ];
-    const validation = validatePayload(req.body, rules, false);
-    if (!validation.valid) {
-      (res as any).recordAuthOutcome(false);
-      return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: validation.errors });
-    }
-
-    (res as any).recordAuthOutcome(true);
-    res.json({ status: 'success', message: 'Account creation initiated.' });
-  });
-
-  app.post('/api/auth/password-reset', authRouteRateLimiter, async (req, res) => {
-    const rules: ValidationRule[] = [
-      { field: 'email', type: 'string', required: true, minLength: 3, maxLength: 254, pattern: EMAIL_REGEX },
-    ];
-    const validation = validatePayload(req.body, rules, false);
-    if (!validation.valid) {
-      (res as any).recordAuthOutcome(false);
-      return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: validation.errors });
-    }
-
-    (res as any).recordAuthOutcome(true);
-    res.json({ status: 'success', message: 'Password reset email sent.' });
-  });
-
-  // -------------------------------------------------------------
   // PUBLIC ENDPOINTS
   // -------------------------------------------------------------
   app.get('/api/health', publicRateLimiter, (req, res) => {
@@ -432,7 +287,6 @@ async function startServer() {
       status: 'ok',
       hasGeminiKey: !!process.env.GEMINI_API_KEY,
       rateLimits: {
-        authIpMax: RATE_LIMIT_CONFIG.authIpMax,
         publicMax: RATE_LIMIT_CONFIG.publicMax,
         authUserMax: RATE_LIMIT_CONFIG.authUserMax,
       },
