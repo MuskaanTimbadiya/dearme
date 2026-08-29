@@ -20,11 +20,14 @@ import {
   Play,
   Pause,
   Maximize2,
+  Smile,
+  Heart,
 } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { auth } from '../lib/firebase';
 import { ErrorBanner } from './ErrorBanner';
 import { VoiceRecorderModal } from './VoiceRecorderModal';
+import { EmojiPickerPopover } from './EmojiPickerPopover';
 import type { JournalEntry, JournalMessage, ReflectionMode, JournalFontFamily, JournalTheme } from '../types';
 
 interface ReflectionSessionProps {
@@ -41,6 +44,8 @@ const INSPIRATION_PROMPTS = [
   'What boundary would protect my peace of mind this week?',
   'What decision have I been delaying, and what is the underlying fear?',
 ];
+
+const QUICK_REACTION_EMOJIS = ['❤️', '🙏', '✨', '💡', '🌿', '😌'];
 
 export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
   entry,
@@ -75,6 +80,10 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
   const [selectedFont, setSelectedFont] = useState<JournalFontFamily>(entry.fontFamily || 'serif');
   const [selectedTheme, setSelectedTheme] = useState<JournalTheme>(entry.theme || 'parchment');
   const [showStyleMenu, setShowStyleMenu] = useState(false);
+
+  // Emoji Picker Popover State
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [isEntryEmojiPickerOpen, setIsEntryEmojiPickerOpen] = useState(false);
 
   // Location State
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
@@ -111,6 +120,19 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
     }
   };
 
+  const handleSetEntryEmoji = async (emoji: string) => {
+    try {
+      await onUpdateEntry({
+        ...entry,
+        emoji,
+        updatedAt: Date.now(),
+      });
+      setIsEntryEmojiPickerOpen(false);
+    } catch (err: any) {
+      setErrorMessage('Failed to set reflection emoji.');
+    }
+  };
+
   const handleFontChange = async (font: JournalFontFamily) => {
     setSelectedFont(font);
     try {
@@ -134,6 +156,29 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
       });
     } catch (err: any) {
       setErrorMessage('Failed to update paper theme.');
+    }
+  };
+
+  // Toggle emoji reaction on a message
+  const handleToggleReaction = async (messageId: string, emoji: string) => {
+    const updatedMessages = entry.messages.map((m) => {
+      if (m.id !== messageId) return m;
+      const currentReactions = m.reactions || [];
+      const hasReaction = currentReactions.includes(emoji);
+      const newReactions = hasReaction
+        ? currentReactions.filter((r) => r !== emoji)
+        : [...currentReactions, emoji];
+      return { ...m, reactions: newReactions };
+    });
+
+    try {
+      await onUpdateEntry({
+        ...entry,
+        messages: updatedMessages,
+        updatedAt: Date.now(),
+      });
+    } catch (err: any) {
+      console.error('Failed to toggle reaction:', err);
     }
   };
 
@@ -505,6 +550,22 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
       {/* Session Top Bar */}
       <div className={`px-6 py-3.5 border-b backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0 ${themePalette.topBar}`}>
         <div className="flex items-center gap-3 flex-1 min-w-0">
+          {/* Entry Emoji Icon Selector */}
+          <div className="relative">
+            <button
+              onClick={() => setIsEntryEmojiPickerOpen(!isEntryEmojiPickerOpen)}
+              className="text-2xl p-1 rounded-xl hover:bg-black/5 transition-transform hover:scale-110 cursor-pointer"
+              title="Set Reflection Icon / Emoji"
+            >
+              {entry.emoji || '🌿'}
+            </button>
+            <EmojiPickerPopover
+              isOpen={isEntryEmojiPickerOpen}
+              onClose={() => setIsEntryEmojiPickerOpen(false)}
+              onSelectEmoji={handleSetEntryEmoji}
+            />
+          </div>
+
           {isEditingTitle ? (
             <input
               id="input-entry-title"
@@ -876,6 +937,26 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                       </div>
                     </div>
                   )}
+
+                  {/* Emoji Reactions Bar */}
+                  <div className="mt-2.5 pt-2 border-t border-current/10 flex items-center gap-1">
+                    {QUICK_REACTION_EMOJIS.map((emoji) => {
+                      const isReacted = message.reactions?.includes(emoji);
+                      return (
+                        <button
+                          key={emoji}
+                          onClick={() => handleToggleReaction(message.id, emoji)}
+                          className={`text-xs px-2 py-0.5 rounded-full transition-all cursor-pointer ${
+                            isReacted
+                              ? 'bg-[#5A5A40] text-white font-semibold scale-110 shadow-xs'
+                              : 'bg-black/5 hover:bg-black/10 text-current opacity-75'
+                          }`}
+                        >
+                          {emoji}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <span className="text-[10px] uppercase tracking-wider opacity-60 font-sans mt-1.5 px-2">
@@ -912,7 +993,14 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
       </div>
 
       {/* Composer Section */}
-      <div className="p-4 sm:p-6 border-t border-current/10 shrink-0">
+      <div className="p-4 sm:p-6 border-t border-current/10 shrink-0 relative">
+        {/* Emoji Picker Popover */}
+        <EmojiPickerPopover
+          isOpen={isEmojiPickerOpen}
+          onClose={() => setIsEmojiPickerOpen(false)}
+          onSelectEmoji={(emoji) => setInputText((prev) => prev + emoji)}
+        />
+
         <div className="max-w-3xl mx-auto space-y-2">
           {/* Pre-send Attachment Chips */}
           {(attachedPhotos.length > 0 || pendingAudioNote) && (
@@ -981,6 +1069,14 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                   title="Record Voice Note"
                 >
                   <Mic className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
+                  className="p-2 rounded-full opacity-70 hover:opacity-100 hover:bg-black/5 transition-colors cursor-pointer text-[#5A5A40]"
+                  title="Insert Emojis"
+                >
+                  <Smile className="w-4 h-4" />
                 </button>
 
                 <span className="text-[10px] uppercase tracking-wider opacity-60 font-sans ml-2">

@@ -9,6 +9,7 @@ export interface JournalMessage {
     duration: number;
     transcript?: string;
   };
+  reactions?: string[];
 }
 
 export type JournalFontFamily = 'serif' | 'handwritten' | 'sans' | 'mono' | 'editorial';
@@ -20,6 +21,7 @@ export interface JournalEntry {
   title: string;
   createdAt: number;
   updatedAt: number;
+  emoji?: string;
   mood?: string;
   summary?: string;
   keyTakeaways?: string[];

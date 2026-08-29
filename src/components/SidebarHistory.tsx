@@ -10,6 +10,7 @@ import {
   Image as ImageIcon,
   Mic,
   MapPin,
+  ArrowUpDown,
 } from 'lucide-react';
 import type { JournalEntry } from '../types';
 
@@ -22,6 +23,8 @@ interface SidebarHistoryProps {
   onNewEntry: () => void;
 }
 
+export type SortOption = 'newest' | 'oldest' | 'title' | 'messages';
+
 export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
   entries,
   selectedEntryId,
@@ -32,6 +35,7 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterFavoriteOnly, setFilterFavoriteOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const filteredEntries = entries.filter((entry) => {
@@ -46,6 +50,20 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
       m.content.toLowerCase().includes(query)
     );
     return matchTitle || matchSummary || matchMood || matchLocation || matchMessages;
+  });
+
+  const sortedEntries = [...filteredEntries].sort((a, b) => {
+    if (sortBy === 'oldest') {
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    }
+    if (sortBy === 'title') {
+      return (a.title || '').localeCompare(b.title || '');
+    }
+    if (sortBy === 'messages') {
+      return (b.messages?.length || 0) - (a.messages?.length || 0);
+    }
+    // Default 'newest'
+    return (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0);
   });
 
   const formatDate = (timestamp: number) => {
@@ -93,8 +111,8 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
           />
         </div>
 
-        {/* Filter Toggle */}
-        <div className="flex items-center justify-between text-xs">
+        {/* Controls: Filter & Sort */}
+        <div className="flex items-center justify-between gap-2 text-xs">
           <button
             onClick={() => setFilterFavoriteOnly(!filterFavoriteOnly)}
             className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-sans uppercase tracking-wider font-medium transition-colors cursor-pointer ${
@@ -107,15 +125,26 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
             <span>Favorites</span>
           </button>
 
-          <span className="text-[10px] uppercase tracking-widest text-[#A8A294] font-sans">
-            {filteredEntries.length} {filteredEntries.length === 1 ? 'item' : 'items'}
-          </span>
+          {/* Sort By Dropdown */}
+          <div className="relative inline-flex items-center gap-1 bg-white px-2 py-1 rounded-full border border-[#E6E1D6] text-[10px] font-sans font-medium text-[#5C564E]">
+            <ArrowUpDown className="w-3 h-3 text-[#A8A294]" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="bg-transparent focus:outline-none text-[#5A5A40] cursor-pointer font-semibold"
+            >
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="title">Title (A-Z)</option>
+              <option value="messages">Most Activity</option>
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Entries List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-        {filteredEntries.length === 0 ? (
+        {sortedEntries.length === 0 ? (
           <div className="py-12 px-4 text-center text-xs text-[#A8A294]">
             <Calendar className="w-8 h-8 mx-auto mb-2 text-[#D4C9B0] opacity-60" />
             <p className="font-medium text-[#5C564E] mb-1 font-serif text-sm">No reflections found</p>
@@ -126,7 +155,7 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
             </p>
           </div>
         ) : (
-          filteredEntries.map((entry) => {
+          sortedEntries.map((entry) => {
             const isSelected = entry.id === selectedEntryId;
             const isConfirmingDelete = deletingId === entry.id;
             const hasPhotos = entry.messages.some((m) => m.photos && m.photos.length > 0);
@@ -156,7 +185,7 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1 mb-0.5">
                       <h4 className="text-sm font-serif font-medium text-[#2D2926] truncate">
-                        {entry.title || 'Untitled Reflection'}
+                        {entry.emoji ? `${entry.emoji} ` : ''}{entry.title || 'Untitled Reflection'}
                       </h4>
 
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
