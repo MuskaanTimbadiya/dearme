@@ -13,7 +13,6 @@ import {
   MapPin,
   Image as ImageIcon,
   Mic,
-  Type,
   Palette,
   LocateFixed,
   X,
@@ -152,7 +151,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
       async (position) => {
         const { latitude, longitude } = position.coords;
         try {
-          // Attempt reverse geocoding via OpenStreetMap Nominatim for human readable city name
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
           );
@@ -178,7 +176,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
           });
           setIsSearchingLocation(false);
         } catch (err) {
-          // Fallback if reverse geocoding request fails
           await onUpdateEntry({
             ...entry,
             location: {
@@ -306,7 +303,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
 
     const newMessages = [...entry.messages, userMessage];
 
-    // Optimistically update entry state with user message
     const updatedEntry: JournalEntry = {
       ...entry,
       title:
@@ -327,7 +323,6 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
       setAttachedPhotos([]);
       setPendingAudioNote(null);
 
-      // Call server-side /api/chat with full history
       const token = await auth.currentUser?.getIdToken();
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -444,24 +439,71 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
     }
   };
 
-  // Helper paper theme class generator
-  const getThemeClass = () => {
+  // Explicit Paper Theme Palette Config
+  const getThemePalette = () => {
     switch (selectedTheme) {
       case 'midnight':
-        return 'theme-midnight';
+        return {
+          container: 'bg-[#121316] text-[#F4F4F5]',
+          topBar: 'bg-[#18191E]/90 border-zinc-800 text-[#F4F4F5]',
+          userBubble: 'bg-[#252830] text-[#F4F4F5] border border-zinc-700',
+          modelBubble: 'bg-[#1A1C23] text-[#F4F4F5] border border-zinc-800 shadow-sm',
+          composerContainer: 'bg-[#1A1C23] border-zinc-700 text-[#F4F4F5]',
+          textarea: 'text-[#F4F4F5] placeholder-zinc-500',
+          summaryCard: 'bg-[#1A1C23] border-zinc-800 text-[#F4F4F5]',
+          badge: 'bg-zinc-800 text-zinc-300 border-zinc-700',
+          pill: 'bg-zinc-800 text-zinc-300',
+          activePill: 'bg-white text-zinc-900 font-semibold',
+        };
       case 'sage':
-        return 'theme-sage';
+        return {
+          container: 'bg-[#F2F6F3] text-[#1E2E25]',
+          topBar: 'bg-[#F2F6F3]/95 border-[#D1DFD5] text-[#1E2E25]',
+          userBubble: 'bg-[#E1EDE4] text-[#1E2E25] border border-[#C5D8C9]',
+          modelBubble: 'bg-white text-[#1E2E25] border border-[#D1DFD5] shadow-xs',
+          composerContainer: 'bg-white border-[#C5D8C9] text-[#1E2E25]',
+          textarea: 'text-[#1E2E25] placeholder-[#7F9E8B]',
+          summaryCard: 'bg-[#E6F0E8] border-[#C5D8C9] text-[#1E2E25]',
+          badge: 'bg-[#E1EDE4] text-[#1E2E25] border-[#C5D8C9]',
+          pill: 'bg-[#E1EDE4] text-[#1E2E25]',
+          activePill: 'bg-white text-[#1E2E25] font-semibold shadow-xs',
+        };
       case 'rose':
-        return 'theme-rose';
+        return {
+          container: 'bg-[#FAF3F4] text-[#381F23]',
+          topBar: 'bg-[#FAF3F4]/95 border-[#E8D0D5] text-[#381F23]',
+          userBubble: 'bg-[#F3E5E8] text-[#381F23] border border-[#E0C5CB]',
+          modelBubble: 'bg-white text-[#381F23] border border-[#E8D0D5] shadow-xs',
+          composerContainer: 'bg-white border-[#E0C5CB] text-[#381F23]',
+          textarea: 'text-[#381F23] placeholder-[#A67E86]',
+          summaryCard: 'bg-[#F5E8EA] border-[#E0C5CB] text-[#381F23]',
+          badge: 'bg-[#F3E5E8] text-[#381F23] border-[#E0C5CB]',
+          pill: 'bg-[#F3E5E8] text-[#381F23]',
+          activePill: 'bg-white text-[#381F23] font-semibold shadow-xs',
+        };
       default:
-        return 'theme-parchment';
+        // Parchment (Default)
+        return {
+          container: 'bg-[#FDFCFB] text-[#2D2926]',
+          topBar: 'bg-[#FDFCFB]/95 border-[#F0EDE8] text-[#2D2926]',
+          userBubble: 'bg-[#F5F2ED] text-[#2D2926] border border-[#E6E1D6]',
+          modelBubble: 'bg-white text-[#2D2926] border border-[#F0EDE8] shadow-xs',
+          composerContainer: 'bg-white border-[#E6E1D6] text-[#2D2926]',
+          textarea: 'text-[#2D2926] placeholder-[#A8A294]',
+          summaryCard: 'bg-[#F5F2ED] border-[#E6E1D6] text-[#2D2926]',
+          badge: 'bg-[#F5F2ED] text-[#5A5A40] border-[#E6E1D6]',
+          pill: 'bg-[#F5F2ED] text-[#5C564E]',
+          activePill: 'bg-white text-[#5A5A40] font-semibold shadow-xs',
+        };
     }
   };
 
+  const themePalette = getThemePalette();
+
   return (
-    <div className={`flex-1 h-full flex flex-col overflow-hidden transition-colors duration-300 ${getThemeClass()}`}>
+    <div className={`flex-1 h-full flex flex-col overflow-hidden transition-colors duration-300 ${themePalette.container}`}>
       {/* Session Top Bar */}
-      <div className="px-6 py-3.5 border-b border-[#E6E1D6]/60 backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
+      <div className={`px-6 py-3.5 border-b backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0 ${themePalette.topBar}`}>
         <div className="flex items-center gap-3 flex-1 min-w-0">
           {isEditingTitle ? (
             <input
@@ -487,7 +529,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
 
           {/* Location Badge */}
           {entry.location && (
-            <div className="flex items-center gap-1 text-xs font-sans opacity-80 shrink-0 bg-black/5 dark:bg-white/10 px-2.5 py-1 rounded-full border border-current/10">
+            <div className={`flex items-center gap-1 text-xs font-sans shrink-0 px-2.5 py-1 rounded-full border ${themePalette.badge}`}>
               <MapPin className="w-3 h-3 text-[#5A5A40]" />
               <span className="truncate max-w-[150px]">{entry.location.description}</span>
             </div>
@@ -497,17 +539,17 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
           <div className="flex items-center gap-1">
             <button
               onClick={() => setIsSearchingLocation(!isSearchingLocation)}
-              className="p-1.5 rounded-md opacity-70 hover:opacity-100 hover:bg-black/5 transition-colors cursor-pointer"
+              className="p-1.5 rounded-md opacity-70 hover:opacity-100 hover:bg-black/5 cursor-pointer transition-colors"
               title="Location Pinning & Auto-Detect"
             >
               <MapPin className="w-4 h-4" />
             </button>
-            
+
             {/* Style & Theme Customizer Toggle */}
             <div className="relative">
               <button
                 onClick={() => setShowStyleMenu(!showStyleMenu)}
-                className="p-1.5 rounded-md opacity-70 hover:opacity-100 hover:bg-black/5 transition-colors cursor-pointer"
+                className="p-1.5 rounded-md opacity-70 hover:opacity-100 hover:bg-black/5 cursor-pointer transition-colors"
                 title="Customize Fonts & Paper Themes"
               >
                 <Palette className="w-4 h-4" />
@@ -650,13 +692,13 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         {/* Action Controls */}
         <div className="flex items-center gap-2.5 shrink-0">
           {/* Mode Switcher */}
-          <div className="flex items-center bg-black/5 dark:bg-white/10 p-1 rounded-full text-xs font-medium">
+          <div className={`flex items-center p-1 rounded-full text-xs font-medium ${themePalette.pill}`}>
             {(['reflective', 'brainstorm', 'actionable'] as ReflectionMode[]).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setSelectedMode(mode)}
                 className={`px-3 py-1 rounded-full text-xs font-sans uppercase tracking-wider transition-all cursor-pointer ${
-                  selectedMode === mode ? 'bg-white text-[#5A5A40] shadow-xs font-semibold' : 'opacity-70 hover:opacity-100'
+                  selectedMode === mode ? themePalette.activePill : 'opacity-70 hover:opacity-100'
                 }`}
               >
                 {mode === 'reflective' ? 'Reflect' : mode === 'brainstorm' ? 'Brainstorm' : 'Actions'}
@@ -682,7 +724,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
       <div className={`flex-1 overflow-y-auto px-4 sm:px-10 py-6 space-y-6 ${getFontClass()}`}>
         {/* AI Summary / Insights Card */}
         {entry.summary && (
-          <div className="p-6 rounded-[28px] bg-black/5 dark:bg-white/5 border border-current/10 shadow-xs">
+          <div className={`p-6 rounded-[28px] border shadow-xs ${themePalette.summaryCard}`}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-[#EDE8DF] text-[#5A5A40] flex items-center justify-center">
@@ -752,7 +794,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                   <button
                     key={idx}
                     onClick={() => handleSendMessage(prompt)}
-                    className="p-3.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-current/10 hover:border-[#5A5A40] text-left text-xs sm:text-sm transition-all cursor-pointer flex items-center justify-between group shadow-2xs"
+                    className={`p-3.5 rounded-2xl border hover:border-[#5A5A40] text-left text-xs sm:text-sm transition-all cursor-pointer flex items-center justify-between group shadow-2xs ${themePalette.userBubble}`}
                   >
                     <span>{prompt}</span>
                     <Sparkles className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100 transition-opacity" />
@@ -770,8 +812,8 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                 <div
                   className={`max-w-2xl text-sm sm:text-base leading-relaxed ${
                     isUser
-                      ? 'bg-black/5 dark:bg-white/10 p-5 rounded-[28px] rounded-tr-none'
-                      : 'bg-white dark:bg-zinc-800 border border-current/10 p-6 rounded-[28px] rounded-tl-none shadow-xs'
+                      ? `${themePalette.userBubble} p-5 rounded-[28px] rounded-tr-none`
+                      : `${themePalette.modelBubble} p-6 rounded-[28px] rounded-tl-none`
                   }`}
                 >
                   {!isUser && (
@@ -812,7 +854,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
 
                   {/* Audio Note Attachment Bar */}
                   {message.audioNote && (
-                    <div className="mt-3 p-3 rounded-2xl bg-black/5 dark:bg-white/10 border border-current/10 flex items-center justify-between gap-3">
+                    <div className="mt-3 p-3 rounded-2xl bg-black/5 border border-current/10 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5">
                         <button
                           onClick={() => toggleAudioPlayback(message.id, message.audioNote!.url)}
@@ -850,7 +892,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         {/* Gemini Generating Indicator */}
         {isGenerating && (
           <div className="flex flex-col items-start">
-            <div className="max-w-md rounded-[28px] p-5 bg-white dark:bg-zinc-800 border border-current/10 shadow-xs rounded-tl-none">
+            <div className={`max-w-md rounded-[28px] p-5 ${themePalette.modelBubble} rounded-tl-none`}>
               <div className="flex items-center gap-2.5 text-xs font-sans text-[#5A5A40]">
                 <div className="w-2 h-2 rounded-full bg-[#5A5A40] animate-ping" />
                 <span>Gemini is reflecting thoughtfully...</span>
@@ -870,7 +912,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
       </div>
 
       {/* Composer Section */}
-      <div className="p-4 sm:p-6 bg-black/5 dark:bg-white/5 border-t border-current/10 shrink-0">
+      <div className="p-4 sm:p-6 border-t border-current/10 shrink-0">
         <div className="max-w-3xl mx-auto space-y-2">
           {/* Pre-send Attachment Chips */}
           {(attachedPhotos.length > 0 || pendingAudioNote) && (
@@ -898,7 +940,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
             </div>
           )}
 
-          <div className="relative rounded-[28px] bg-white dark:bg-zinc-800 border border-current/10 focus-within:ring-2 focus-within:ring-[#5A5A40]/25 transition-all p-3.5 sm:p-4 shadow-sm">
+          <div className={`relative rounded-[28px] border focus-within:ring-2 focus-within:ring-[#5A5A40]/25 transition-all p-3.5 sm:p-4 shadow-sm ${themePalette.composerContainer}`}>
             <textarea
               id="input-reflection-message"
               ref={textareaRef}
@@ -911,7 +953,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                   ? 'Pour your thoughts, feelings, or record a voice note...'
                   : 'Reply or continue your reflection...'
               }
-              className={`w-full bg-transparent resize-none text-sm sm:text-base placeholder:opacity-50 focus:outline-none leading-relaxed ${getFontClass()}`}
+              className={`w-full bg-transparent resize-none text-sm sm:text-base focus:outline-none leading-relaxed ${getFontClass()} ${themePalette.textarea}`}
             />
 
             <div className="flex items-center justify-between pt-2 border-t border-current/10 mt-1">
@@ -927,7 +969,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-2 rounded-full opacity-70 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  className="p-2 rounded-full opacity-70 hover:opacity-100 hover:bg-black/5 transition-colors cursor-pointer"
                   title="Attach Photo"
                 >
                   <ImageIcon className="w-4 h-4" />
@@ -935,7 +977,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
 
                 <button
                   onClick={() => setIsVoiceModalOpen(true)}
-                  className="p-2 rounded-full opacity-70 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  className="p-2 rounded-full opacity-70 hover:opacity-100 hover:bg-black/5 transition-colors cursor-pointer"
                   title="Record Voice Note"
                 >
                   <Mic className="w-4 h-4" />
