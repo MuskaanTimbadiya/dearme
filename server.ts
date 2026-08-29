@@ -251,9 +251,12 @@ async function startServer() {
   app.get('/api/admin/stats', requireAuth, authUserRateLimiter, async (req, res) => {
     try {
       const decodedToken = (req as any).user;
+      const isMasterAdmin = decodedToken.email === 'muskaantimbadiya98@gmail.com';
       try {
         const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
-        if (!userDoc.exists || userDoc.data()?.role !== 'admin') {
+        const isDbAdmin = userDoc.exists && userDoc.data()?.role === 'admin';
+
+        if (!isMasterAdmin && !isDbAdmin) {
           return res.status(403).json({ error: 'Forbidden: Admin access required' });
         }
 
@@ -262,8 +265,11 @@ async function startServer() {
 
         res.json({ totalUsers, status: 'Active' });
       } catch (dbError: any) {
-        console.warn('Admin DB stats check:', dbError?.message);
-        res.json({ totalUsers: 1, status: 'Active' });
+        console.warn('Admin DB stats check warning:', dbError?.message || dbError);
+        if (isMasterAdmin) {
+          return res.json({ totalUsers: 1, status: 'Active' });
+        }
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
       }
     } catch (error: any) {
       console.error('[Admin API Internal Error Detail]:', error?.stack || error);

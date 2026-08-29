@@ -8,24 +8,30 @@ export const AdminDashboard: React.FC<{ user: UserProfile }> = ({ user }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const token = await auth.currentUser?.getIdToken();
-        const res = await fetch('/api/admin/stats', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        if (!res.ok) throw new Error('Failed to fetch admin stats');
-        const data = await res.json();
-        setStats(data);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
+  const fetchStats = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/admin/stats', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Failed to fetch admin stats (${res.status})`);
       }
-    };
+      const data = await res.json();
+      setStats(data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchStats();
   }, []);
 
@@ -52,8 +58,14 @@ export const AdminDashboard: React.FC<{ user: UserProfile }> = ({ user }) => {
             <Activity className="w-6 h-6 text-[#5A5A40] animate-spin" />
           </div>
         ) : error ? (
-          <div className="p-4 rounded-xl bg-[#FDF2F2] border border-[#F5C6C6] text-[#9B2C2C] text-sm">
-            {error}
+          <div className="p-4 rounded-xl bg-[#FDF2F2] border border-[#F5C6C6] text-[#9B2C2C] text-sm flex items-center justify-between">
+            <span>{error}</span>
+            <button
+              onClick={fetchStats}
+              className="px-3 py-1 rounded-md bg-[#9B2C2C] text-white text-xs font-sans uppercase font-bold hover:bg-[#7B2323] cursor-pointer"
+            >
+              Retry
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

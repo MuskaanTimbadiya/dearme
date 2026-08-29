@@ -83,6 +83,9 @@ export const fetchUserProfile = async (user: User): Promise<UserProfile> => {
       if (snap.data().role === 'admin') {
         isAdmin = true;
       }
+      if (isAdmin && snap.data().role !== 'admin') {
+        await updateDoc(profileRef, { role: 'admin' }).catch(() => {});
+      }
     } else {
       // Create basic profile doc if it doesn't exist
       await setDoc(
