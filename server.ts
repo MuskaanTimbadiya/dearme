@@ -342,14 +342,26 @@ async function startServer() {
       }
 
       const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-      if (!apiKey) {
-        return res.status(503).json({ error: 'Google Maps API key not configured.' });
+      if (apiKey) {
+        const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        return res.json(data);
       }
 
-      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      res.json(data);
+      // OpenStreetMap Nominatim Fallback when GOOGLE_MAPS_API_KEY is not set
+      const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(input)}&limit=5`;
+      const osmResponse = await fetch(osmUrl, {
+        headers: { 'User-Agent': 'DearMe-JournalApp/1.0' },
+      });
+      const osmData = await osmResponse.json();
+      const predictions = Array.isArray(osmData)
+        ? osmData.map((item: any) => ({
+            place_id: String(item.place_id),
+            description: item.display_name,
+          }))
+        : [];
+      return res.json({ predictions });
     } catch (error: any) {
       console.error('[Places API Internal Error Detail]:', error?.stack || error);
       res.status(500).json({ error: 'Failed to fetch places.' });

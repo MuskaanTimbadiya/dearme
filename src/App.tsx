@@ -342,6 +342,7 @@ export default function App() {
         onClose={() => setIsReminderModalOpen(false)}
         settings={currentUser.reminderSettings || DEFAULT_REMINDER_SETTINGS}
         onSaveSettings={handleSaveReminderSettings}
+        onTestReminder={(testPrompt) => setActiveBannerPrompt(testPrompt)}
       />
 
       {activeBannerPrompt && (

@@ -251,7 +251,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
 
   const handleSearchLocation = async (query: string) => {
     setLocationInput(query);
-    if (query.length < 3) {
+    if (query.length < 2) {
       setPlacePredictions([]);
       return;
     }
@@ -263,11 +263,30 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         },
       });
       const data = await res.json();
-      if (data.predictions) {
+      if (data.predictions && data.predictions.length > 0) {
         setPlacePredictions(data.predictions);
+        return;
       }
     } catch (err) {
-      console.error('Failed to search locations:', err);
+      console.warn('Backend places search warning, falling back to direct OSM search:', err);
+    }
+
+    // Direct fallback to OpenStreetMap Nominatim
+    try {
+      const osmRes = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
+      );
+      const osmData = await osmRes.json();
+      if (Array.isArray(osmData) && osmData.length > 0) {
+        setPlacePredictions(
+          osmData.map((item: any) => ({
+            place_id: String(item.place_id),
+            description: item.display_name,
+          }))
+        );
+      }
+    } catch (osmErr) {
+      console.error('OSM fallback error:', osmErr);
     }
   };
 
@@ -604,7 +623,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -890,8 +909,27 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
               placeholder="Or search city, venue, spot..."
               value={locationInput}
               onChange={(e) => handleSearchLocation(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && locationInput.trim()) {
+                  e.preventDefault();
+                  handleSelectLocation('custom-' + Date.now(), locationInput.trim());
+                }
+              }}
               className="w-full text-xs font-sans text-[#2D2926] border-b border-[#E6E1D6] bg-transparent focus:outline-none pb-2 mb-2 placeholder:text-[#A8A294]"
             />
+
+            {locationInput.trim().length > 0 && (
+              <div className="mb-2">
+                <button
+                  type="button"
+                  onClick={() => handleSelectLocation('custom-' + Date.now(), locationInput.trim())}
+                  className="w-full text-left text-xs font-sans font-semibold text-[#5A5A40] bg-[#F5F2ED] hover:bg-[#EAE5DC] p-2 rounded-md transition-colors truncate flex items-center gap-1.5"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-[#5A5A40] shrink-0" />
+                  <span>Set location: "{locationInput.trim()}"</span>
+                </button>
+              </div>
+            )}
 
             {placePredictions.length > 0 && (
               <ul className="max-h-48 overflow-y-auto space-y-1">

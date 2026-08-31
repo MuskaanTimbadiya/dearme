@@ -29,6 +29,7 @@ interface ReminderModalProps {
   onClose: () => void;
   settings: ReminderSettings;
   onSaveSettings: (newSettings: ReminderSettings) => Promise<void>;
+  onTestReminder?: (prompt: string) => void;
 }
 
 export const ReminderModal: React.FC<ReminderModalProps> = ({
@@ -36,6 +37,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
   onClose,
   settings,
   onSaveSettings,
+  onTestReminder,
 }) => {
   const [localSettings, setLocalSettings] = useState<ReminderSettings>(settings);
   const [permissionState, setPermissionState] = useState<NotificationPermissionState>('default');
@@ -89,16 +91,24 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
     });
   };
 
-  const handleSendTestNotification = () => {
+  const handleSendTestNotification = async () => {
+    if (permissionState === 'default') {
+      const res = await requestNotificationPermission();
+      setPermissionState(res);
+    }
+
     if (localSettings.soundEnabled) {
       playGentleReminderChime();
     }
-    sendNativeNotification(
-      'DearMe Test Reminder 🌿',
-      localSettings.prompt || 'Time to unpack your day with DearMe'
-    );
+    const testPrompt = localSettings.prompt || 'Time to unpack your day with DearMe 🌿';
+    sendNativeNotification('DearMe Test Reminder 🌿', testPrompt);
+
+    if (onTestReminder) {
+      onTestReminder(testPrompt);
+    }
+
     setTestSentNotice(true);
-    setTimeout(() => setTestSentNotice(false), 3500);
+    setTimeout(() => setTestSentNotice(false), 4000);
   };
 
   const handleSave = async () => {
