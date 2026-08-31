@@ -368,7 +368,7 @@ async function startServer() {
     }
   });
 
-function buildDearMeSystemInstruction(callbacks: string[], mode?: string, entryTitle?: string): string {
+function buildDearMeSystemInstruction(callbacks: string[], mode?: string, entryTitle?: string, language?: string): string {
   const callbacksList = Array.isArray(callbacks) && callbacks.length > 0
     ? callbacks.slice(0, 3).map((c) => `- ${String(c)}`).join('\n')
     : 'None';
@@ -387,6 +387,14 @@ Distress handling: if the person's messages suggest they may be in crisis, at ri
 
 Context (relevant_callbacks):
 ${callbacksList}`;
+
+  if (language === 'hi') {
+    sys += `\nLanguage Directive: Respond in warm, natural Hindi (हिन्दी) using Devanagari script. Keep tone gentle and empathetic.`;
+  } else if (language === 'gu') {
+    sys += `\nLanguage Directive: Respond in warm, natural Gujarati (ગુજરાતી) using Gujarati script. Keep tone gentle and empathetic.`;
+  } else {
+    sys += `\nLanguage Directive: Respond in English.`;
+  }
 
   if (mode === 'brainstorm') {
     sys += `\nCurrent focus: Brainstorming & Perspective Exploration. Help explore creative angles gently.`;
@@ -420,6 +428,7 @@ ${callbacksList}`;
         { field: 'mode', type: 'string', required: false, enum: ['reflective', 'brainstorm', 'actionable', 'summary'] },
         { field: 'entryTitle', type: 'string', required: false, maxLength: 100 },
         { field: 'callbacks', type: 'array', required: false, maxLength: 10 },
+        { field: 'language', type: 'string', required: false, enum: ['en', 'hi', 'gu'] },
       ];
 
       const validation = validatePayload(req.body, rules, false);
@@ -427,8 +436,8 @@ ${callbacksList}`;
         return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: validation.errors });
       }
 
-      const { messages, mode = 'reflective', entryTitle = '', callbacks = [] } = req.body;
-      const systemInstruction = buildDearMeSystemInstruction(callbacks, mode, entryTitle);
+      const { messages, mode = 'reflective', entryTitle = '', callbacks = [], language = 'en' } = req.body;
+      const systemInstruction = buildDearMeSystemInstruction(callbacks, mode, entryTitle, language);
 
       const formattedContents = messages.map((m: { role: string; content: string }) => ({
         role: m.role === 'model' || m.role === 'assistant' ? 'model' : 'user',
@@ -473,6 +482,7 @@ ${callbacksList}`;
         { field: 'mode', type: 'string', required: false, enum: ['reflective', 'brainstorm', 'actionable', 'summary'] },
         { field: 'entryTitle', type: 'string', required: false, maxLength: 100 },
         { field: 'callbacks', type: 'array', required: false, maxLength: 10 },
+        { field: 'language', type: 'string', required: false, enum: ['en', 'hi', 'gu'] },
       ];
 
       const validation = validatePayload(req.body, rules, false);
@@ -480,8 +490,8 @@ ${callbacksList}`;
         return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: validation.errors });
       }
 
-      const { messages, mode = 'reflective', entryTitle = '', callbacks = [] } = req.body;
-      const systemInstruction = buildDearMeSystemInstruction(callbacks, mode, entryTitle);
+      const { messages, mode = 'reflective', entryTitle = '', callbacks = [], language = 'en' } = req.body;
+      const systemInstruction = buildDearMeSystemInstruction(callbacks, mode, entryTitle, language);
 
       const formattedContents = messages.map((m: { role: string; content: string }) => ({
         role: m.role === 'model' || m.role === 'assistant' ? 'model' : 'user',
@@ -534,6 +544,7 @@ ${callbacksList}`;
             { field: 'content', type: 'string', required: true, maxLength: 10000 },
           ],
         },
+        { field: 'language', type: 'string', required: false, enum: ['en', 'hi', 'gu'] },
       ];
 
       const validation = validatePayload(req.body, rules, false);
@@ -541,7 +552,7 @@ ${callbacksList}`;
         return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: validation.errors });
       }
 
-      const { messages, text } = req.body;
+      const { messages, text, language = 'en' } = req.body;
 
       let combinedContent = '';
       if (text) {
@@ -562,7 +573,7 @@ ${callbacksList}`;
         });
       }
 
-      const systemInstruction = `You are a careful, private journaling assistant. You will be given the full
+      let systemInstruction = `You are a careful, private journaling assistant. You will be given the full
 text of one reflection session (text and/or voice transcript). Extract
 structured data from it. Do not add commentary outside the JSON.
 
@@ -575,6 +586,12 @@ Rules for callback_facts:
   e.g. "Mentioned an upcoming exam on Oct 14 causing anxiety" — not
   "User is anxious."
 - Never infer or fabricate anything not stated in the entry.`;
+
+      if (language === 'hi') {
+        systemInstruction += `\nLanguage Directive: Output all JSON string values (title, summary, moods, callback_facts) in natural Hindi (हिन्दी).`;
+      } else if (language === 'gu') {
+        systemInstruction += `\nLanguage Directive: Output all JSON string values (title, summary, moods, callback_facts) in natural Gujarati (ગુજરાતી).`;
+      }
 
       const currentDate = new Date().toISOString().split('T')[0];
       const userPrompt = `Entry date: ${currentDate}\nEntry text:\n${combinedContent}`;

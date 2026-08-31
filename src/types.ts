@@ -14,6 +14,7 @@ export interface JournalMessage {
 
 export type JournalFontFamily = 'serif' | 'handwritten' | 'sans' | 'mono' | 'editorial';
 export type JournalTheme = 'parchment' | 'midnight' | 'sage' | 'rose';
+export type AppLanguage = 'en' | 'hi' | 'gu';
 
 export interface JournalEntry {
   id: string;

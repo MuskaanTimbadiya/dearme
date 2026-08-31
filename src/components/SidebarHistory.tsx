@@ -15,7 +15,8 @@ import {
 } from 'lucide-react';
 import { getOnThisDayMemories } from '../lib/onThisDay';
 import { OnThisDayCard } from './OnThisDayCard';
-import type { JournalEntry } from '../types';
+import { getTranslation } from '../lib/translations';
+import type { JournalEntry, AppLanguage } from '../types';
 
 interface SidebarHistoryProps {
   entries: JournalEntry[];
@@ -26,6 +27,7 @@ interface SidebarHistoryProps {
   onNewEntry: () => void;
   onOpenInsights?: () => void;
   onReflectOnMemory?: (entry: JournalEntry, timeAgoText: string) => void;
+  language?: AppLanguage;
 }
 
 export type SortOption = 'newest' | 'oldest' | 'title' | 'messages';
@@ -39,7 +41,9 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
   onNewEntry,
   onOpenInsights,
   onReflectOnMemory,
+  language = 'en',
 }) => {
+  const t = getTranslation(language);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterFavoriteOnly, setFilterFavoriteOnly] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
@@ -95,7 +99,7 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-[11px] uppercase tracking-wider text-[#A8A294] font-sans font-semibold">
-              Past Reflections ({entries.length})
+              {t.pastReflections} ({entries.length})
             </h2>
             {onOpenInsights && (
               <button
@@ -104,7 +108,7 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
                 title="View Mood Trends & Insights"
               >
                 <BarChart2 className="w-3 h-3 text-[#5A5A40]" />
-                <span>Insights</span>
+                <span>{t.insightsBtn}</span>
               </button>
             )}
           </div>
@@ -113,7 +117,7 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
             id="btn-sidebar-new"
             onClick={onNewEntry}
             className="p-1 text-[#5A5A40] hover:text-[#2D2926] hover:bg-[#EDE8DF] rounded-md transition-colors cursor-pointer"
-            title="Create New Reflection"
+            title={t.newReflection}
           >
             <PlusCircle className="w-4 h-4" />
           </button>
@@ -125,7 +129,7 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
           <input
             id="input-sidebar-search"
             type="text"
-            placeholder="Search reflections, photos, locations..."
+            placeholder={t.searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3.5 py-2 text-xs rounded-2xl bg-white border border-[#E6E1D6] focus:outline-none focus:ring-1 focus:ring-[#5A5A40] focus:border-[#5A5A40] text-[#2D2926] placeholder-[#A8A294]"
@@ -143,7 +147,7 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
             }`}
           >
             <Star className={`w-3 h-3 ${filterFavoriteOnly ? 'fill-[#5A5A40] text-[#5A5A40]' : ''}`} />
-            <span>Favorites</span>
+            <span>{t.favorites}</span>
           </button>
 
           {/* Sort By Dropdown */}
@@ -154,10 +158,10 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
               onChange={(e) => setSortBy(e.target.value as SortOption)}
               className="bg-transparent focus:outline-none text-[#5A5A40] cursor-pointer font-semibold"
             >
-              <option value="newest">Newest</option>
-              <option value="oldest">Oldest</option>
-              <option value="title">Title (A-Z)</option>
-              <option value="messages">Most Activity</option>
+              <option value="newest">{t.sortNewest}</option>
+              <option value="oldest">{t.sortOldest}</option>
+              <option value="title">{t.sortTitle}</option>
+              <option value="messages">{t.sortActivity}</option>
             </select>
           </div>
         </div>

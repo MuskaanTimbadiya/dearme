@@ -54,6 +54,7 @@ describe('Server Payload Validation (validatePayload)', () => {
       { field: 'mode', type: 'string', required: false, enum: ['reflective', 'brainstorm', 'actionable', 'summary'] },
       { field: 'entryTitle', type: 'string', required: false, maxLength: 100 },
       { field: 'callbacks', type: 'array', required: false, maxLength: 10 },
+      { field: 'language', type: 'string', required: false, enum: ['en', 'hi', 'gu'] },
     ];
 
     const validChatPayload = {
@@ -61,6 +62,7 @@ describe('Server Payload Validation (validatePayload)', () => {
       mode: 'reflective',
       entryTitle: 'Exam Preparation',
       callbacks: ['Mentioned an upcoming exam on Oct 14 causing anxiety'],
+      language: 'hi',
     };
 
     const result = validatePayload(validChatPayload, chatRules, false);

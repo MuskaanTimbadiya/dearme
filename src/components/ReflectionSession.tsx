@@ -34,12 +34,14 @@ import { VoiceRecorderModal } from './VoiceRecorderModal';
 import { EmojiPickerPopover } from './EmojiPickerPopover';
 import { sanitizeUserFacingError } from '../lib/errorUtils';
 import { validateImageUpload, compressAndResizeImage } from '../lib/fileValidation';
-import type { JournalEntry, JournalMessage, ReflectionMode, JournalFontFamily, JournalTheme } from '../types';
+import { getTranslation } from '../lib/translations';
+import type { JournalEntry, JournalMessage, ReflectionMode, JournalFontFamily, JournalTheme, AppLanguage } from '../types';
 
 interface ReflectionSessionProps {
   entry: JournalEntry;
   onUpdateEntry: (updated: JournalEntry) => Promise<void>;
   isSaving: boolean;
+  language?: AppLanguage;
 }
 
 const INSPIRATION_PROMPTS = [
@@ -57,7 +59,9 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
   entry,
   onUpdateEntry,
   isSaving,
+  language = 'en',
 }) => {
+  const t = getTranslation(language);
   const [inputText, setInputText] = useState('');
   const [selectedMode, setSelectedMode] = useState<ReflectionMode>('reflective');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -505,6 +509,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
           mode: selectedMode,
           entryTitle: entry.title,
           callbacks: entry.callback_facts || entry.keyTakeaways || [],
+          language,
         }),
       });
 
@@ -594,6 +599,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
             role: m.role,
             content: m.content,
           })),
+          language,
         }),
       });
 

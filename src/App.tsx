@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, logout, fetchUserProfile, saveUserJournalEntry, getUserJournalEntries, deleteUserJournalEntry, updateUserEntryFields, saveUserReminderSettings, DEFAULT_REMINDER_SETTINGS } from './lib/firebase';
-import type { UserProfile, JournalEntry, ReminderSettings } from './types';
+import type { UserProfile, JournalEntry, ReminderSettings, AppLanguage } from './types';
 import { LandingPage } from './components/LandingPage';
 import { Navbar } from './components/Navbar';
 import { SidebarHistory } from './components/SidebarHistory';
@@ -22,6 +22,14 @@ export default function App() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [language, setLanguage] = useState<AppLanguage>(
+    () => (localStorage.getItem('dearme_language') as AppLanguage) || 'en'
+  );
+
+  const handleLanguageChange = (newLang: AppLanguage) => {
+    setLanguage(newLang);
+    localStorage.setItem('dearme_language', newLang);
+  };
 
   type FailedOperation = {
     type: 'create' | 'update' | 'delete' | 'favorite';
@@ -345,6 +353,8 @@ export default function App() {
         onOpenInsights={() => setIsInsightsOpen(true)}
         onOpenOnboarding={() => setIsOnboardingOpen(true)}
         onOpenReminders={() => setIsReminderModalOpen(true)}
+        language={language}
+        onChangeLanguage={handleLanguageChange}
       />
 
       <MoodTrendsModal
@@ -406,6 +416,7 @@ export default function App() {
           onNewEntry={handleCreateNewEntry}
           onOpenInsights={() => setIsInsightsOpen(true)}
           onReflectOnMemory={handleReflectOnMemory}
+          language={language}
         />
 
         {/* Active Reflection Session */}
@@ -415,6 +426,7 @@ export default function App() {
             entry={selectedEntry}
             onUpdateEntry={handleUpdateEntry}
             isSaving={isSaving}
+            language={language}
           />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[#5C564E] bg-[#FDFCFB]">

@@ -1,6 +1,6 @@
 import React from 'react';
-import { Flame, Plus, LogOut, ShieldCheck, User as UserIcon, BarChart2, HelpCircle, Bell } from 'lucide-react';
-import type { JournalEntry, UserProfile } from '../types';
+import { Flame, Plus, LogOut, ShieldCheck, User as UserIcon, BarChart2, HelpCircle, Bell, Globe } from 'lucide-react';
+import type { JournalEntry, UserProfile, AppLanguage } from '../types';
 
 interface NavbarProps {
   user: UserProfile;
@@ -11,6 +11,8 @@ interface NavbarProps {
   onOpenInsights?: () => void;
   onOpenOnboarding?: () => void;
   onOpenReminders?: () => void;
+  language?: AppLanguage;
+  onChangeLanguage?: (lang: AppLanguage) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -22,6 +24,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenInsights,
   onOpenOnboarding,
   onOpenReminders,
+  language = 'en',
+  onChangeLanguage,
 }) => {
   const calculateStreak = () => {
     if (!entries || entries.length === 0) return 0;
@@ -60,6 +64,23 @@ export const Navbar: React.FC<NavbarProps> = ({
           <Flame className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
           <span>{streak} Day Streak</span>
         </div>
+
+        {/* Language Selector Dropdown */}
+        {onChangeLanguage && (
+          <div className="relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white border border-[#E6E1D6] text-xs font-sans font-medium text-[#5C564E] shadow-2xs">
+            <Globe className="w-3.5 h-3.5 text-[#5A5A40]" />
+            <select
+              value={language}
+              onChange={(e) => onChangeLanguage(e.target.value as AppLanguage)}
+              className="bg-transparent focus:outline-none text-[#5A5A40] cursor-pointer font-semibold text-xs"
+              title="Select Application Language (English / हिन्दी / ગુજરાતી)"
+            >
+              <option value="en">English</option>
+              <option value="hi">हिन्दी</option>
+              <option value="gu">ગુજરાતી</option>
+            </select>
+          </div>
+        )}
 
         {/* Reminders Button */}
         {onOpenReminders && (
