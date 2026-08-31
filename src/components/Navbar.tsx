@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flame, Plus, LogOut, ShieldCheck, User as UserIcon, BarChart2, HelpCircle } from 'lucide-react';
+import { Flame, Plus, LogOut, ShieldCheck, User as UserIcon, BarChart2, HelpCircle, Bell } from 'lucide-react';
 import type { JournalEntry, UserProfile } from '../types';
 
 interface NavbarProps {
@@ -10,6 +10,7 @@ interface NavbarProps {
   isSaving: boolean;
   onOpenInsights?: () => void;
   onOpenOnboarding?: () => void;
+  onOpenReminders?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -20,6 +21,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   isSaving,
   onOpenInsights,
   onOpenOnboarding,
+  onOpenReminders,
 }) => {
   const calculateStreak = () => {
     if (!entries || entries.length === 0) return 0;
@@ -30,6 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const streak = calculateStreak();
+  const isReminderEnabled = user.reminderSettings?.enabled ?? false;
 
   return (
     <header className="h-16 border-b border-[#E6E1D6] bg-[#FDFCFB] px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
@@ -57,6 +60,21 @@ export const Navbar: React.FC<NavbarProps> = ({
           <Flame className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
           <span>{streak} Day Streak</span>
         </div>
+
+        {/* Reminders Button */}
+        {onOpenReminders && (
+          <button
+            id="btn-navbar-reminders"
+            onClick={onOpenReminders}
+            className="relative p-2 rounded-full bg-white border border-[#E6E1D6] hover:bg-[#F9F8F6] transition-colors text-[#5A5A40] cursor-pointer shadow-2xs"
+            title={isReminderEnabled ? 'Reflection Reminders Active' : 'Configure Reflection Reminders'}
+          >
+            <Bell className="w-4 h-4 text-[#5A5A40]" />
+            {isReminderEnabled && (
+              <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-[#5A5A40] ring-2 ring-white" />
+            )}
+          </button>
+        )}
 
         {/* Insights / Mood Trends Button */}
         {onOpenInsights && (

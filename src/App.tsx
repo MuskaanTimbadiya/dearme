@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, logout, fetchUserProfile, saveUserJournalEntry, getUserJournalEntries, deleteUserJournalEntry, updateUserEntryFields } from './lib/firebase';
-import type { UserProfile, JournalEntry } from './types';
+import { auth, logout, fetchUserProfile, saveUserJournalEntry, getUserJournalEntries, deleteUserJournalEntry, updateUserEntryFields, saveUserReminderSettings, DEFAULT_REMINDER_SETTINGS } from './lib/firebase';
+import type { UserProfile, JournalEntry, ReminderSettings } from './types';
 import { LandingPage } from './components/LandingPage';
 import { Navbar } from './components/Navbar';
 import { SidebarHistory } from './components/SidebarHistory';
@@ -9,8 +9,11 @@ import { ReflectionSession } from './components/ReflectionSession';
 import { AdminDashboard } from './components/AdminDashboard';
 import { MoodTrendsModal } from './components/MoodTrendsModal';
 import { OnboardingTour } from './components/OnboardingTour';
+import { ReminderModal } from './components/ReminderModal';
+import { ReminderBanner } from './components/ReminderBanner';
 import { ErrorBanner } from './components/ErrorBanner';
 import { sanitizeUserFacingError } from './lib/errorUtils';
+import { checkShouldTriggerReminder, sendNativeNotification, playGentleReminderChime } from './lib/reminderManager';
 import { Feather } from 'lucide-react';
 
 export default function App() {
@@ -29,6 +32,8 @@ export default function App() {
   const [failedOp, setFailedOp] = useState<FailedOperation | null>(null);
   const [isInsightsOpen, setIsInsightsOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  const [activeBannerPrompt, setActiveBannerPrompt] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentUser) {
@@ -91,6 +96,65 @@ export default function App() {
       fetchEntries(currentUser.uid);
     }
   }, [currentUser?.uid, fetchEntries]);
+
+  // Scheduled Reminder Interval Checker
+  useEffect(() => {
+    if (!currentUser?.uid || !currentUser.reminderSettings?.enabled) return;
+
+    const interval = setInterval(() => {
+      const settings = currentUser.reminderSettings;
+      if (!settings) return;
+      const now = new Date();
+      if (checkShouldTriggerReminder(settings, now)) {
+        const prompt = settings.prompt || 'Time to unpack your day with DearMe 🌿';
+        if (settings.soundEnabled) {
+          playGentleReminderChime();
+        }
+        sendNativeNotification('DearMe Reflection Reminder 🌿', prompt, () => {
+          handleStartReflectionFromReminder(prompt);
+        });
+        setActiveBannerPrompt(prompt);
+
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const date = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${date}`;
+        const updatedSettings: ReminderSettings = { ...settings, lastTriggeredDate: todayStr };
+
+        setCurrentUser((prev) => (prev ? { ...prev, reminderSettings: updatedSettings } : null));
+        saveUserReminderSettings(currentUser.uid, updatedSettings).catch(() => {});
+      }
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [currentUser?.uid, currentUser?.reminderSettings]);
+
+  const handleSaveReminderSettings = async (newSettings: ReminderSettings) => {
+    if (!currentUser) return;
+    setCurrentUser((prev) => (prev ? { ...prev, reminderSettings: newSettings } : null));
+    await saveUserReminderSettings(currentUser.uid, newSettings);
+  };
+
+  const handleStartReflectionFromReminder = (promptText: string) => {
+    if (!currentUser) return;
+    const newEntry: JournalEntry = {
+      id: 'entry-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      userId: currentUser.uid,
+      title: promptText.length > 40 ? promptText.slice(0, 40) + '...' : promptText,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      messages: [
+        {
+          id: 'msg-' + Date.now(),
+          role: 'model',
+          content: promptText,
+          timestamp: Date.now(),
+        },
+      ],
+    };
+    retryCreateEntry(newEntry);
+    setActiveBannerPrompt(null);
+  };
 
   const handleRetryOp = () => {
     if (!failedOp) return;
@@ -259,6 +323,7 @@ export default function App() {
         isSaving={isSaving}
         onOpenInsights={() => setIsInsightsOpen(true)}
         onOpenOnboarding={() => setIsOnboardingOpen(true)}
+        onOpenReminders={() => setIsReminderModalOpen(true)}
       />
 
       <MoodTrendsModal
@@ -271,6 +336,22 @@ export default function App() {
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
       />
+
+      <ReminderModal
+        isOpen={isReminderModalOpen}
+        onClose={() => setIsReminderModalOpen(false)}
+        settings={currentUser.reminderSettings || DEFAULT_REMINDER_SETTINGS}
+        onSaveSettings={handleSaveReminderSettings}
+      />
+
+      {activeBannerPrompt && (
+        <ReminderBanner
+          prompt={activeBannerPrompt}
+          onStartReflection={() => handleStartReflectionFromReminder(activeBannerPrompt)}
+          onDismiss={() => setActiveBannerPrompt(null)}
+        />
+      )}
+
       {currentUser.isAdmin && (
         <div className="bg-[#5A5A40] text-[#E6E1D6] px-4 py-1.5 flex items-center justify-between shrink-0 text-xs font-sans">
           <span className="font-semibold uppercase tracking-widest">Admin Mode</span>

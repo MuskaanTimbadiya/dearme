@@ -23,7 +23,7 @@ import {
   QueryDocumentSnapshot,
   DocumentData,
 } from 'firebase/firestore';
-import type { JournalEntry, JournalMessage, UserProfile } from '../types';
+import type { JournalEntry, JournalMessage, UserProfile, ReminderSettings } from '../types';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Initialize Firebase
@@ -75,18 +75,31 @@ export const logout = async (): Promise<void> => {
   await signOut(auth);
 };
 
+export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
+  enabled: false,
+  time: '20:00',
+  days: [1, 2, 3, 4, 5],
+  prompt: 'Time to unpack your day with DearMe 🌿',
+  soundEnabled: true,
+};
+
 export const fetchUserProfile = async (user: User): Promise<UserProfile> => {
   const profileRef = doc(db, 'users', user.uid);
   try {
     const snap = await getDoc(profileRef);
     let isAdmin = user.email === 'muskaantimbadiya98@gmail.com';
+    let reminderSettings: ReminderSettings = DEFAULT_REMINDER_SETTINGS;
 
     if (snap.exists()) {
-      if (snap.data().role === 'admin') {
+      const data = snap.data();
+      if (data.role === 'admin') {
         isAdmin = true;
       }
-      if (isAdmin && snap.data().role !== 'admin') {
+      if (isAdmin && data.role !== 'admin') {
         await updateDoc(profileRef, { role: 'admin' }).catch(() => {});
+      }
+      if (data.reminderSettings) {
+        reminderSettings = { ...DEFAULT_REMINDER_SETTINGS, ...data.reminderSettings };
       }
     } else {
       // Create basic profile doc if it doesn't exist
@@ -96,6 +109,7 @@ export const fetchUserProfile = async (user: User): Promise<UserProfile> => {
           email: user.email,
           role: isAdmin ? 'admin' : 'user',
           createdAt: Date.now(),
+          reminderSettings: DEFAULT_REMINDER_SETTINGS,
         },
         { merge: true }
       );
@@ -107,6 +121,7 @@ export const fetchUserProfile = async (user: User): Promise<UserProfile> => {
       email: user.email,
       photoURL: user.photoURL,
       isAdmin,
+      reminderSettings,
     };
   } catch (err: any) {
     console.warn('Profile fetch notice:', err?.message || err);
@@ -116,8 +131,19 @@ export const fetchUserProfile = async (user: User): Promise<UserProfile> => {
       email: user.email,
       photoURL: user.photoURL,
       isAdmin: user.email === 'muskaantimbadiya98@gmail.com',
+      reminderSettings: DEFAULT_REMINDER_SETTINGS,
     };
   }
+};
+
+export const saveUserReminderSettings = async (
+  userId: string,
+  settings: ReminderSettings
+): Promise<void> => {
+  if (!userId) throw new Error('User ID is required to save reminder settings');
+  const profileRef = doc(db, 'users', userId);
+  const cleanPayload = sanitizeFirestorePayload({ reminderSettings: settings });
+  await setDoc(profileRef, cleanPayload, { merge: true });
 };
 
 /**
