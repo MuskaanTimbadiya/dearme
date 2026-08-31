@@ -13,18 +13,26 @@ import {
 } from 'recharts';
 import type { JournalEntry } from '../types';
 
+import { getOnThisDayMemories } from '../lib/onThisDay';
+
 interface MoodTrendsModalProps {
   isOpen: boolean;
   onClose: () => void;
   entries: JournalEntry[];
+  onSelectEntry?: (entryId: string) => void;
 }
 
 export const MoodTrendsModal: React.FC<MoodTrendsModalProps> = ({
   isOpen,
   onClose,
   entries,
+  onSelectEntry,
 }) => {
   if (!isOpen) return null;
+
+  const onThisDayMemories = React.useMemo(() => {
+    return getOnThisDayMemories(entries);
+  }, [entries]);
 
   // Process entries over time for time-series trend chart
   const processedTrendData = React.useMemo(() => {
@@ -196,6 +204,55 @@ export const MoodTrendsModal: React.FC<MoodTrendsModalProps> = ({
             </ResponsiveContainer>
           </div>
         </div>
+
+        {/* On This Day Memory Spotlight */}
+        {onThisDayMemories.length > 0 && (
+          <div className="bg-slate-800/60 p-5 rounded-2xl border border-slate-700/50 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <h3 className="text-sm font-sans font-bold text-white">
+                  On This Day Spotlight — {onThisDayMemories[0].label}
+                </h3>
+              </div>
+              <span className="text-xs text-slate-400 font-sans">
+                {new Date(onThisDayMemories[0].entry.createdAt).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </span>
+            </div>
+
+            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  {onThisDayMemories[0].entry.emoji && <span>{onThisDayMemories[0].entry.emoji}</span>}
+                  <h4 className="text-sm font-sans font-semibold text-white truncate">
+                    {onThisDayMemories[0].entry.title || 'Untitled Reflection'}
+                  </h4>
+                </div>
+                {onThisDayMemories[0].entry.summary && (
+                  <p className="text-xs text-slate-400 italic line-clamp-1 mt-1">
+                    "{onThisDayMemories[0].entry.summary}"
+                  </p>
+                )}
+              </div>
+
+              {onSelectEntry && (
+                <button
+                  onClick={() => {
+                    onSelectEntry(onThisDayMemories[0].entry.id);
+                    onClose();
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#5A5A40] hover:bg-[#4A4A34] text-white text-xs font-sans font-semibold transition-colors shrink-0 cursor-pointer shadow-xs"
+                >
+                  Revisit
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

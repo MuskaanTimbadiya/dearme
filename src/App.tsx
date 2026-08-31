@@ -201,6 +201,27 @@ export default function App() {
     retryCreateEntry(newEntry);
   };
 
+  const handleReflectOnMemory = (pastEntry: JournalEntry, timeAgoText: string) => {
+    if (!currentUser) return;
+    const newEntry: JournalEntry = {
+      id: 'entry-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+      userId: currentUser.uid,
+      title: `Memory: ${pastEntry.title || 'Past Reflection'}`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      messages: [
+        {
+          id: 'msg-' + Date.now(),
+          role: 'model',
+          content: `Welcome back to this memory from ${timeAgoText}! You wrote: "${pastEntry.summary || pastEntry.title}". How do you feel looking back at this today?`,
+          timestamp: Date.now(),
+        },
+      ],
+      callback_facts: pastEntry.callback_facts || pastEntry.keyTakeaways || [],
+    };
+    retryCreateEntry(newEntry);
+  };
+
   // Update entry
   const handleUpdateEntry = async (updated: JournalEntry) => {
     if (!currentUser) return;
@@ -330,6 +351,7 @@ export default function App() {
         isOpen={isInsightsOpen}
         onClose={() => setIsInsightsOpen(false)}
         entries={entries}
+        onSelectEntry={(id) => setSelectedEntryId(id)}
       />
 
       <OnboardingTour
@@ -342,7 +364,7 @@ export default function App() {
         onClose={() => setIsReminderModalOpen(false)}
         settings={currentUser.reminderSettings || DEFAULT_REMINDER_SETTINGS}
         onSaveSettings={handleSaveReminderSettings}
-        onTestReminder={(testPrompt) => setActiveBannerPrompt(testPrompt)}
+        onTestReminder={(promptText) => setActiveBannerPrompt(promptText)}
       />
 
       {activeBannerPrompt && (
@@ -383,6 +405,7 @@ export default function App() {
           onToggleFavorite={handleToggleFavorite}
           onNewEntry={handleCreateNewEntry}
           onOpenInsights={() => setIsInsightsOpen(true)}
+          onReflectOnMemory={handleReflectOnMemory}
         />
 
         {/* Active Reflection Session */}

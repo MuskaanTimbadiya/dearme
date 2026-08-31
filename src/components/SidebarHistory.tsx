@@ -13,6 +13,8 @@ import {
   ArrowUpDown,
   BarChart2,
 } from 'lucide-react';
+import { getOnThisDayMemories } from '../lib/onThisDay';
+import { OnThisDayCard } from './OnThisDayCard';
 import type { JournalEntry } from '../types';
 
 interface SidebarHistoryProps {
@@ -23,6 +25,7 @@ interface SidebarHistoryProps {
   onToggleFavorite: (entryId: string, isFav: boolean) => void;
   onNewEntry: () => void;
   onOpenInsights?: () => void;
+  onReflectOnMemory?: (entry: JournalEntry, timeAgoText: string) => void;
 }
 
 export type SortOption = 'newest' | 'oldest' | 'title' | 'messages';
@@ -35,11 +38,16 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
   onToggleFavorite,
   onNewEntry,
   onOpenInsights,
+  onReflectOnMemory,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterFavoriteOnly, setFilterFavoriteOnly] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const onThisDayMemories = React.useMemo(() => {
+    return getOnThisDayMemories(entries);
+  }, [entries]);
 
   const filteredEntries = entries.filter((entry) => {
     if (filterFavoriteOnly && !entry.isFavorite) return false;
@@ -157,6 +165,16 @@ export const SidebarHistory: React.FC<SidebarHistoryProps> = ({
 
       {/* Entries List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+        {onThisDayMemories.length > 0 && !searchQuery.trim() && !filterFavoriteOnly && (
+          <div className="mb-3">
+            <OnThisDayCard
+              memory={onThisDayMemories[0]}
+              onSelectEntry={onSelectEntry}
+              onReflectOnMemory={onReflectOnMemory}
+            />
+          </div>
+        )}
+
         {sortedEntries.length === 0 ? (
           <div className="py-12 px-4 text-center text-xs text-[#A8A294]">
             <Calendar className="w-8 h-8 mx-auto mb-2 text-[#D4C9B0] opacity-60" />
