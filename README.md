@@ -26,6 +26,8 @@
 ```
  📜 Paper Palettes    ───>  Warm Parchment | Sage Forest | Rose Quartz | Midnight Sky
  ✒️ Typography        ───>  Classic Garamond | Handwritten Caveat | Bookish Lora | Typewriter Mono
+ 🌐 Multilingual      ───>  English | हिन्दी (Hindi) | ગુજરાતી (Gujarati) with 🌐 Navbar Picker
+ 🕰️ On This Day       ───>  Surfaces Past Entry Memories (1 Year / Month / Week Ago)
  🎙️ Voice & Speech    ───>  MediaRecorder Audio Notes + Real-time Web Speech Transcription
  🔔 Reminders         ───>  Custom Schedule | Web Audio Soft Chime | Native Push & In-App Banner
  📷 Media Attachments ───>  Base64 Image Uploads + Interactive Lightbox Viewer
@@ -41,6 +43,13 @@
 
 - 📜 **Ambient Paper Themes**: Switch seamlessly between **Warm Parchment** 📜, **Sage Forest** 🌿, **Rose Quartz** 🌸, and **Midnight Starlight** 🌌. Text boxes and message bubbles automatically adapt to high-contrast readable colors without unwanted OS dark-mode glitches.
 - ✒️ **Custom Journal Typography**: Tailor your reflection fonts in real time using Google Fonts (*Classic Garamond*, *Handwritten Diary Caveat*, *Bookish Lora*, *Typewriter Mono*, *Modern Clean*).
+- 🌐 **Multilingual Support (English, Hindi, Gujarati)**:
+  - Toggle between **English**, **हिन्दी (Hindi)**, and **ગુજરાતી (Gujarati)** via the Globe 🌐 dropdown in the navigation bar.
+  - Generates AI responses and synthesized reflection summaries in natural Devanagari Hindi or Gujarati script.
+  - Automatically saves language preference to `localStorage`.
+- 🕰️ **"On This Day" Memory Surfacing**:
+  - Automatically matches and surfaces past journal entries created on the same date **1 year**, **1 month**, or **1 week** ago.
+  - Featured in the sidebar spotlight banner and mindfulness insights modal with **Revisit Entry** and **Reflect** CTAs.
 - 🔔 **Reflection Reminders & Notifications**:
   - Flexible scheduling (Daily, Weekdays, Weekends, Custom Days) with 24-hour time picking.
   - Web Audio synthesized soft chimes and browser native push notifications.
@@ -219,6 +228,10 @@ gcloud run services update aura-reflect \
 - **Test Case 6.2 (Start Reflection CTA)**: Click **Start Reflection** on banner alert → app creates a new reflection pre-filled with custom reminder prompt.
 - **Test Case 6.3 (Keyboard Sending)**: Type reflection message → press **Enter** (sends entry) → press **Shift + Enter** (inserts newline).
 
+### Journey 7: Multilingual Support & On This Day Memories
+- **Test Case 7.1 (Language Picker)**: Select **हिन्दी (Hindi)** or **ગુજરાતી (Gujarati)** in Navbar 🌐 → UI text updates instantly → AI responses stream in natural Hindi/Gujarati script.
+- **Test Case 7.2 (On This Day Spotlight)**: View sidebar spotlight banner or Insights modal → click **Revisit Entry** or **Reflect** → creates pre-filled memory reflection.
+
 ---
 
 ## 🧪 Automated Test Suite Execution
@@ -228,11 +241,13 @@ gcloud run services update aura-reflect \
 npm test
 ```
 
-- `tests/server.test.ts`: **6/6 passed** (Payload validation, strict schema, chat with callbacks array, summary schema)
+- `tests/translations.test.ts`: **5/5 passed** (Key structural parity, Hindi, Gujarati, English fallback)
+- `tests/onThisDay.test.ts`: **4/4 passed** (1 year ago, 1 month ago, 1 week ago, fallback calculation)
+- `tests/server.test.ts`: **6/6 passed** (Payload validation, strict schema, chat with callbacks and language parameter)
 - `tests/reminder.test.ts`: **6/6 passed** (Schedule matching, day calculations, formatting)
 - `tests/firestore.rules.test.ts`: **9/9 passed** (Owner data isolation, cross-user write rejection, role escalation prevention)
 
-**Total**: **21/21 passed** (0 failures).
+**Total**: **30/30 passed** (0 failures).
 
 ---
 
