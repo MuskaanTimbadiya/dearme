@@ -27,25 +27,35 @@
  📜 Paper Palettes    ───>  Warm Parchment | Sage Forest | Rose Quartz | Midnight Sky
  ✒️ Typography        ───>  Classic Garamond | Handwritten Caveat | Bookish Lora | Typewriter Mono
  🎙️ Voice & Speech    ───>  MediaRecorder Audio Notes + Real-time Web Speech Transcription
+ 🔔 Reminders         ───>  Custom Schedule | Web Audio Soft Chime | Native Push & In-App Banner
  📷 Media Attachments ───>  Base64 Image Uploads + Interactive Lightbox Viewer
  😃 Emoji Suite       ───>  Composer Picker Popover | Entry Icons | Message Emoji Reactions
- 📍 Geolocation       ───>  1-Click Browser Auto-Detection + Google Places Lookup
- 🔄 Flexible Sorting  ───>  Newest | Oldest | Title (A-Z) | Most Activity
+ 📍 Geolocation       ───>  1-Click Auto-Detect + Google Places & OpenStreetMap Fallback Search
+ 💬 DearMe Companion  ───>  Empathetic Socratic Guide | Fact Callbacks | Crisis Support Helplines
  🛡️ Security First    ───>  Firebase Auth Middleware + Owner-Isolated Firestore Rules
 ```
 
 ---
 
-## 🎨 Aesthetics & Personalization
+## 🎨 Personalization & Mindful Companionship
 
 - 📜 **Ambient Paper Themes**: Switch seamlessly between **Warm Parchment** 📜, **Sage Forest** 🌿, **Rose Quartz** 🌸, and **Midnight Starlight** 🌌. Text boxes and message bubbles automatically adapt to high-contrast readable colors without unwanted OS dark-mode glitches.
-- ✒️ **Custom Journal Typography**: Tailor your reflection fonts in real time using Google Fonts:
-  - *Classic Garamond* (Editorial Serif)
-  - *Handwritten Diary* (Caveat Cursive)
-  - *Bookish Lora* (Classic Book Serif)
-  - *Typewriter* (JetBrains Monospace)
-  - *Modern Clean* (Plus Jakarta Sans)
-- 😃 **Emoji & Reaction Suite**: Assign custom emojis to reflection titles, insert emojis via an integrated popover picker, and leave quick emoji reactions (`❤️`, `🙏`, `✨`, `💡`, `🌿`, `😌`) on messages.
+- ✒️ **Custom Journal Typography**: Tailor your reflection fonts in real time using Google Fonts (*Classic Garamond*, *Handwritten Diary Caveat*, *Bookish Lora*, *Typewriter Mono*, *Modern Clean*).
+- 🔔 **Reflection Reminders & Notifications**:
+  - Flexible scheduling (Daily, Weekdays, Weekends, Custom Days) with 24-hour time picking.
+  - Web Audio synthesized soft chimes and browser native push notifications.
+  - Floating in-app reminder banner alert with 1-click **Start Reflection** CTA.
+- 💬 **DearMe Journaling Companion & Crisis Support**:
+  - Non-clinical, gentle, curious Socratic companion prompt.
+  - Extracts 0-3 concrete third-person `callback_facts` from entry synthesis and references at most ONE per session when relevant.
+  - Integrated distress detection surfacing free, 24/7 India helplines (**Tele MANAS: 14416** & **KIRAN: 1800-599-0019**).
+- 📍 **Worldwide Location Pinning & OpenStreetMap Fallback**:
+  - Auto-detect current browser location with 1 click.
+  - Autocomplete place search powered by Google Places API with automatic **OpenStreetMap Nominatim** fallback when no API key is provided.
+  - Instant custom location text pinning with **Enter** key support.
+- ⌨️ **Intuitive Keyboard Composer**:
+  - Press **Enter** to immediately send reflection messages.
+  - Press **Shift + Enter** to insert newlines in the textarea.
 
 ---
 
@@ -201,8 +211,28 @@ gcloud run services update aura-reflect \
 - **Test Case 4.3 (Emoji Popover & Reactions)**: Click smile icon 😊 → select emoji → tap quick reaction badges (`❤️`, `🙏`, `✨`) on message bubbles.
 
 ### Journey 5: Geolocation & Archive Management
-- **Test Case 5.1 (1-Click Auto-Location)**: Click **Map Pin** 📍 → click **Auto-Detect** → browser location detects city and updates entry header.
+- **Test Case 5.1 (1-Click Auto-Location & OSM Fallback)**: Click **Map Pin** 📍 → click **Auto-Detect** or type location query → place predictions render using Places API or OpenStreetMap Nominatim.
 - **Test Case 5.2 (Sorting Archive)**: Select **Sort By** dropdown in sidebar → sort by **Newest**, **Oldest**, **Title (A-Z)**, or **Most Activity**.
+
+### Journey 6: Reflection Reminders & Keyboard Shortcuts
+- **Test Case 6.1 (Reminder Schedule)**: Click Bell icon 🔔 in Navbar → set schedule (Daily 20:00) → click **Send Test Notification** → floating in-app banner alert pops up immediately.
+- **Test Case 6.2 (Start Reflection CTA)**: Click **Start Reflection** on banner alert → app creates a new reflection pre-filled with custom reminder prompt.
+- **Test Case 6.3 (Keyboard Sending)**: Type reflection message → press **Enter** (sends entry) → press **Shift + Enter** (inserts newline).
+
+---
+
+## 🧪 Automated Test Suite Execution
+
+```bash
+# Run complete automated test suite against Firebase Firestore Emulator
+npm test
+```
+
+- `tests/server.test.ts`: **6/6 passed** (Payload validation, strict schema, chat with callbacks array, summary schema)
+- `tests/reminder.test.ts`: **6/6 passed** (Schedule matching, day calculations, formatting)
+- `tests/firestore.rules.test.ts`: **9/9 passed** (Owner data isolation, cross-user write rejection, role escalation prevention)
+
+**Total**: **21/21 passed** (0 failures).
 
 ---
 

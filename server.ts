@@ -368,6 +368,41 @@ async function startServer() {
     }
   });
 
+function buildDearMeSystemInstruction(callbacks: string[], mode?: string, entryTitle?: string): string {
+  const callbacksList = Array.isArray(callbacks) && callbacks.length > 0
+    ? callbacks.slice(0, 3).map((c) => `- ${String(c)}`).join('\n')
+    : 'None';
+
+  let sys = `You are DearMe, a warm, present journaling companion. You are not a therapist and must not diagnose, prescribe, or give clinical advice. Your job is to help the person unpack what they're feeling, at their pace.
+
+Tone: gentle, unhurried, curious. Short responses over long ones. Ask at most one follow-up question per turn. Never rush toward advice or silver linings — let the person sit with what they said before offering any reframing.
+
+You have been given up to 3 facts from this person's past entries, in relevant_callbacks. Rules for using them:
+- Bring up at most ONE per session, and only if it is genuinely relevant to what the person is saying right now — never as a forced icebreaker.
+- Reference it naturally and lightly, e.g. "You mentioned an exam coming up last week — is that still on your mind?" Never say "According to my records" or anything that sounds like a database lookup.
+- If relevant_callbacks is empty or None, do not reference anything — just be present with today's entry.
+- Never invent a callback that isn't in the provided list.
+
+Distress handling: if the person's messages suggest they may be in crisis, at risk of self-harm, or in acute distress, stop pursuing reflection questions. Respond with warmth, take it seriously, and gently surface professional support alongside your response — for India, that can include the Tele MANAS helpline (14416) or the KIRAN helpline (1800-599-0019), both free and 24x7. Don't make this feel like a canned disclaimer; make it feel like a friend making sure they're not carrying this alone.
+
+Context (relevant_callbacks):
+${callbacksList}`;
+
+  if (mode === 'brainstorm') {
+    sys += `\nCurrent focus: Brainstorming & Perspective Exploration. Help explore creative angles gently.`;
+  } else if (mode === 'actionable') {
+    sys += `\nCurrent focus: Clarity & Grounded Next Steps. Help distill thoughts into realistic micro-steps.`;
+  } else if (mode === 'summary') {
+    sys += `\nCurrent focus: Synthesizing Themes. Gently highlight underlying feelings and patterns.`;
+  }
+
+  if (entryTitle) {
+    sys += `\nJournal Entry Topic/Title: "${String(entryTitle).slice(0, 100)}"`;
+  }
+
+  return sys;
+}
+
   app.post('/api/chat', requireAuth, authUserRateLimiter, async (req, res) => {
     try {
       const rules: ValidationRule[] = [
@@ -384,6 +419,7 @@ async function startServer() {
         },
         { field: 'mode', type: 'string', required: false, enum: ['reflective', 'brainstorm', 'actionable', 'summary'] },
         { field: 'entryTitle', type: 'string', required: false, maxLength: 100 },
+        { field: 'callbacks', type: 'array', required: false, maxLength: 10 },
       ];
 
       const validation = validatePayload(req.body, rules, false);
@@ -391,30 +427,8 @@ async function startServer() {
         return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: validation.errors });
       }
 
-      const { messages, mode = 'reflective', entryTitle = '' } = req.body;
-
-      let systemInstruction = `You are a thoughtful, empathetic, and insightful AI Reflection Companion and Journal Guide.
-Your purpose is to help the user unpack their thoughts, feelings, plans, and experiences with clarity and warmth.
-
-Tone and style:
-- Empathetic, supportive, constructive, and grounded.
-- Avoid generic cliches or unsolicited patronizing advice.
-- When the user shares something deep or challenging, validate their perspective before gently offering reframing or reflective questions.
-- Format responses clearly with markdown formatting (bullet points, clear paragraphs, bold emphasis where helpful).`;
-
-      if (mode === 'brainstorm') {
-        systemInstruction += `\nCurrent focus: Brainstorming & Perspective Exploration. Help the user explore diverse angles, creative alternatives, unexpected possibilities, and creative solutions.`;
-      } else if (mode === 'actionable') {
-        systemInstruction += `\nCurrent focus: Clarity & Actionable Next Steps. Help distill the user's thoughts into clear, realistic micro-steps, boundaries, or practical experiments.`;
-      } else if (mode === 'summary') {
-        systemInstruction += `\nCurrent focus: Synthesizing & Core Themes. Help identify underlying emotional patterns, recurring themes, and core insights from what they wrote.`;
-      } else {
-        systemInstruction += `\nCurrent focus: Gentle Socratic Reflection. Encourage deeper self-awareness, ask 1-2 open-ended reflective questions, and highlight positive moments or growth edges.`;
-      }
-
-      if (entryTitle) {
-        systemInstruction += `\nJournal Entry Topic/Title: "${String(entryTitle).slice(0, 100)}"`;
-      }
+      const { messages, mode = 'reflective', entryTitle = '', callbacks = [] } = req.body;
+      const systemInstruction = buildDearMeSystemInstruction(callbacks, mode, entryTitle);
 
       const formattedContents = messages.map((m: { role: string; content: string }) => ({
         role: m.role === 'model' || m.role === 'assistant' ? 'model' : 'user',
@@ -458,6 +472,7 @@ Tone and style:
         },
         { field: 'mode', type: 'string', required: false, enum: ['reflective', 'brainstorm', 'actionable', 'summary'] },
         { field: 'entryTitle', type: 'string', required: false, maxLength: 100 },
+        { field: 'callbacks', type: 'array', required: false, maxLength: 10 },
       ];
 
       const validation = validatePayload(req.body, rules, false);
@@ -465,21 +480,8 @@ Tone and style:
         return res.status(400).json({ error: 'Invalid Request Schema', validationErrors: validation.errors });
       }
 
-      const { messages, entryTitle = '' } = req.body;
-
-      let systemInstruction = `You are a thoughtful, empathetic, and highly adaptive AI Reflection Companion and Journal Guide.
-Your purpose is to help the user unpack their thoughts, feelings, plans, and experiences with clarity, depth, and warmth.
-
-Adaptive Behavior:
-- Dynamically analyze the user's intent from what they write.
-- If they are exploring ideas or seeking options, provide creative perspective & brainstorming angles.
-- If they share a practical problem or goal, offer realistic, grounded micro-steps or practical boundaries.
-- If they express deep emotions or personal experiences, offer gentle validation and 1-2 open-ended reflective questions.
-- Format responses clearly with markdown formatting (bullet points, clear paragraphs, bold emphasis where helpful).`;
-
-      if (entryTitle) {
-        systemInstruction += `\nJournal Entry Topic/Title: "${String(entryTitle).slice(0, 100)}"`;
-      }
+      const { messages, mode = 'reflective', entryTitle = '', callbacks = [] } = req.body;
+      const systemInstruction = buildDearMeSystemInstruction(callbacks, mode, entryTitle);
 
       const formattedContents = messages.map((m: { role: string; content: string }) => ({
         role: m.role === 'model' || m.role === 'assistant' ? 'model' : 'user',
@@ -560,38 +562,59 @@ Adaptive Behavior:
         });
       }
 
-      const prompt = `Analyze this personal reflection/journal conversation and provide a structured summary.
-Content:
-${combinedContent}
+      const systemInstruction = `You are a careful, private journaling assistant. You will be given the full
+text of one reflection session (text and/or voice transcript). Extract
+structured data from it. Do not add commentary outside the JSON.
 
-Return a clean JSON object with:
-1. "title": A meaningful, poetic or descriptive title for this journal entry (max 6-8 words).
-2. "summary": A compassionate 2-3 sentence overview capturing the essence of the reflection.
-3. "keyTakeaways": An array of 2 to 4 concise bullet points of core insights, realizations, or takeaways.
-4. "mood": A single descriptive mood tag (e.g. "Grateful & Grounded", "Contemplative", "Energized", "Processing Change", "Focused", "Hopeful").`;
+Rules for callback_facts:
+- 0 to 3 items. Fewer is fine — do not force it.
+- Each must be a SPECIFIC, concrete thing (a named situation, a decision
+  pending, a relationship, a plan, a recurring worry) — not a mood or a
+  generic theme like "was reflective."
+- Write each as a short factual note in third person, as if for a case file,
+  e.g. "Mentioned an upcoming exam on Oct 14 causing anxiety" — not
+  "User is anxious."
+- Never infer or fabricate anything not stated in the entry.`;
+
+      const currentDate = new Date().toISOString().split('T')[0];
+      const userPrompt = `Entry date: ${currentDate}\nEntry text:\n${combinedContent}`;
 
       const { response } = await generateContentWithFallback({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
         config: {
+          systemInstruction,
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
             properties: {
               title: { type: Type.STRING },
               summary: { type: Type.STRING },
-              keyTakeaways: {
+              moods: {
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
               },
-              mood: { type: Type.STRING },
+              callback_facts: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+              },
             },
-            required: ['title', 'summary', 'keyTakeaways', 'mood'],
+            required: ['title', 'summary', 'moods', 'callback_facts'],
           },
         },
       });
 
       const responseText = response.text || '{}';
       const parsed = JSON.parse(responseText);
+
+      const result = {
+        title: parsed.title || 'Personal Reflection',
+        summary: parsed.summary || 'A reflection session capturing insights and thoughts.',
+        moods: Array.isArray(parsed.moods) ? parsed.moods : [],
+        callback_facts: Array.isArray(parsed.callback_facts) ? parsed.callback_facts : [],
+        // Backwards compatibility for existing UI views
+        mood: Array.isArray(parsed.moods) && parsed.moods.length > 0 ? parsed.moods.join(', ') : 'Reflective',
+        keyTakeaways: Array.isArray(parsed.callback_facts) ? parsed.callback_facts : [],
+      };
 
       if (process.env.EXTERNAL_WEBHOOK_URL) {
         setTimeout(() => {
@@ -600,14 +623,14 @@ Return a clean JSON object with:
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               event: 'reflection_synthesized',
-              mood: parsed.mood || 'Unknown',
+              mood: result.mood || 'Unknown',
               timestamp: new Date().toISOString(),
             }),
           }).catch((err) => console.error('Webhook notification failed:', err));
         }, 0);
       }
 
-      res.json(parsed);
+      res.json(result);
     } catch (error: any) {
       console.error('[API /api/summarize Internal Error Detail]:', error?.stack || error);
       res.status(500).json({
@@ -615,7 +638,9 @@ Return a clean JSON object with:
         fallback: {
           title: 'Personal Reflection',
           summary: 'A session exploring thoughts and experiences.',
-          keyTakeaways: ['Reflected on personal insights'],
+          moods: ['Contemplative'],
+          callback_facts: [],
+          keyTakeaways: [],
           mood: 'Contemplative',
         },
       });

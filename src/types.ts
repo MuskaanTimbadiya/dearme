@@ -23,8 +23,10 @@ export interface JournalEntry {
   updatedAt: number;
   emoji?: string;
   mood?: string;
+  moods?: string[];
   summary?: string;
   keyTakeaways?: string[];
+  callback_facts?: string[];
   messages: JournalMessage[];
   isFavorite?: boolean;
   fontFamily?: JournalFontFamily;

@@ -504,6 +504,7 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
           })),
           mode: selectedMode,
           entryTitle: entry.title,
+          callbacks: entry.callback_facts || entry.keyTakeaways || [],
         }),
       });
 
@@ -607,8 +608,10 @@ export const ReflectionSession: React.FC<ReflectionSessionProps> = ({
         ...entry,
         title: data.title || entry.title,
         summary: data.summary,
-        keyTakeaways: data.keyTakeaways || [],
-        mood: data.mood || 'Reflective',
+        keyTakeaways: data.keyTakeaways || data.callback_facts || [],
+        callback_facts: data.callback_facts || data.keyTakeaways || [],
+        mood: data.mood || (Array.isArray(data.moods) ? data.moods.join(', ') : 'Reflective'),
+        moods: data.moods || (data.mood ? [data.mood] : ['Reflective']),
         updatedAt: Date.now(),
       };
 

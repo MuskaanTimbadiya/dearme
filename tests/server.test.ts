@@ -41,4 +41,30 @@ describe('Server Payload Validation (validatePayload)', () => {
     expect(result.valid).toBe(false);
     expect(result.errors[0]).toContain('Unexpected properties not allowed');
   });
+
+  it('should validate chat payload schema with optional callbacks array', () => {
+    const chatRules: ValidationRule[] = [
+      {
+        field: 'messages',
+        type: 'array',
+        required: true,
+        minLength: 1,
+        maxLength: 100,
+      },
+      { field: 'mode', type: 'string', required: false, enum: ['reflective', 'brainstorm', 'actionable', 'summary'] },
+      { field: 'entryTitle', type: 'string', required: false, maxLength: 100 },
+      { field: 'callbacks', type: 'array', required: false, maxLength: 10 },
+    ];
+
+    const validChatPayload = {
+      messages: [{ role: 'user', content: 'Feeling anxious about the exam' }],
+      mode: 'reflective',
+      entryTitle: 'Exam Preparation',
+      callbacks: ['Mentioned an upcoming exam on Oct 14 causing anxiety'],
+    };
+
+    const result = validatePayload(validChatPayload, chatRules, false);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
 });
