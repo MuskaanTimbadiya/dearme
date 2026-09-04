@@ -76,26 +76,26 @@ export const MoodTrendsModal: React.FC<MoodTrendsModalProps> = ({
   const favoriteEntries = entries.filter((e) => e.isFavorite).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 animate-in fade-in">
-      <div className="relative w-full max-w-4xl bg-slate-900 text-white rounded-3xl border border-slate-800 shadow-2xl overflow-hidden p-6 sm:p-8 flex flex-col gap-6 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in">
+      <div className="relative w-full max-w-4xl bg-[#FDFCFB] text-[#2D2926] rounded-3xl border border-[#E6E1D6] shadow-2xl overflow-hidden p-6 sm:p-8 flex flex-col gap-6 max-h-[90vh] overflow-y-auto">
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="flex items-center justify-between border-b border-[#F0EDE8] pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#5A5A40] flex items-center justify-center shadow-md">
-              <TrendingUp className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-2xl bg-[#5A5A40] text-white flex items-center justify-center shadow-xs">
+              <TrendingUp className="w-5 h-5 text-[#FDFCFB]" />
             </div>
             <div>
-              <h2 className="text-xl font-sans font-bold text-white tracking-tight">
+              <h2 className="text-xl font-serif font-bold text-[#2D2926] tracking-tight">
                 Mood Trends & Mindfulness Insights
               </h2>
-              <p className="text-xs text-slate-400 font-sans">
+              <p className="text-xs text-[#5C564E] font-sans">
                 Visual analytics mapping your emotional trajectory and journal activity
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="p-2 rounded-full text-[#8C857B] hover:text-[#2D2926] hover:bg-[#F5F2ED] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -103,43 +103,43 @@ export const MoodTrendsModal: React.FC<MoodTrendsModalProps> = ({
 
         {/* Quick Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-slate-800/60 p-4 rounded-2xl border border-slate-700/50 flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-emerald-500/15 text-emerald-400">
+          <div className="bg-[#F5F2EB] p-4 rounded-2xl border border-[#E6E1D6] flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-[#5A5A40]/10 text-[#5A5A40]">
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-2xl font-sans font-black text-white">{totalEntries}</span>
-              <p className="text-[11px] font-sans text-slate-400">Total Reflections</p>
+              <span className="text-2xl font-sans font-black text-[#2D2926]">{totalEntries}</span>
+              <p className="text-[11px] font-sans text-[#5C564E]">Total Reflections</p>
             </div>
           </div>
 
-          <div className="bg-slate-800/60 p-4 rounded-2xl border border-slate-700/50 flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-indigo-500/15 text-indigo-400">
+          <div className="bg-[#F5F2EB] p-4 rounded-2xl border border-[#E6E1D6] flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-[#B5945B]/15 text-[#B5945B]">
               <Heart className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-2xl font-sans font-black text-white">{favoriteEntries}</span>
-              <p className="text-[11px] font-sans text-slate-400">Starred Reflections</p>
+              <span className="text-2xl font-sans font-black text-[#2D2926]">{favoriteEntries}</span>
+              <p className="text-[11px] font-sans text-[#5C564E]">Starred Reflections</p>
             </div>
           </div>
 
-          <div className="bg-slate-800/60 p-4 rounded-2xl border border-slate-700/50 flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-pink-500/15 text-pink-400">
+          <div className="bg-[#F5F2EB] p-4 rounded-2xl border border-[#E6E1D6] flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-[#6B7F6A]/15 text-[#6B7F6A]">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-2xl font-sans font-black text-white">
+              <span className="text-2xl font-sans font-black text-[#2D2926]">
                 {processedMoodDistribution.length}
               </span>
-              <p className="text-[11px] font-sans text-slate-400">Unique Mood Tags</p>
+              <p className="text-[11px] font-sans text-[#5C564E]">Unique Mood Tags</p>
             </div>
           </div>
         </div>
 
         {/* Reflection Activity Chart */}
-        <div className="bg-slate-800/60 p-5 rounded-2xl border border-slate-700/50 flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-xs font-tech-heading font-semibold text-slate-300">
-            <BarChart2 className="w-4 h-4 text-[#42b883]" />
+        <div className="bg-[#F5F2EB] p-5 rounded-2xl border border-[#E6E1D6] flex flex-col gap-3">
+          <div className="flex items-center gap-2 text-xs font-sans font-semibold text-[#2D2926]">
+            <BarChart2 className="w-4 h-4 text-[#5A5A40]" />
             <span>14-Day Reflection Activity</span>
           </div>
           <div className="h-48 w-full pt-2">
@@ -147,25 +147,25 @@ export const MoodTrendsModal: React.FC<MoodTrendsModalProps> = ({
               <AreaChart data={processedTrendData}>
                 <defs>
                   <linearGradient id="colorEntries" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#42b883" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#42b883" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="#5A5A40" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#5A5A40" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={11} allowDecimals={false} tickLine={false} />
+                <XAxis dataKey="date" stroke="#78716C" fontSize={11} tickLine={false} />
+                <YAxis stroke="#78716C" fontSize={11} allowDecimals={false} tickLine={false} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                    backgroundColor: '#2D2926',
+                    borderColor: '#5A5A40',
                     borderRadius: '12px',
                     fontSize: '12px',
-                    color: '#fff',
+                    color: '#FDFCFB',
                   }}
                 />
                 <Area
                   type="monotone"
                   dataKey="entries"
-                  stroke="#42b883"
+                  stroke="#5A5A40"
                   strokeWidth={2}
                   fillOpacity={1}
                   fill="url(#colorEntries)"
@@ -176,23 +176,23 @@ export const MoodTrendsModal: React.FC<MoodTrendsModalProps> = ({
         </div>
 
         {/* Mood Distribution Bar Chart */}
-        <div className="glass-panel p-5 rounded-2xl border border-white/10 flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-xs font-tech-heading font-semibold text-slate-300">
-            <Smile className="w-4 h-4 text-indigo-400" />
+        <div className="bg-[#F5F2EB] p-5 rounded-2xl border border-[#E6E1D6] flex flex-col gap-3">
+          <div className="flex items-center gap-2 text-xs font-sans font-semibold text-[#2D2926]">
+            <Smile className="w-4 h-4 text-[#5A5A40]" />
             <span>Mood Tag Breakdown</span>
           </div>
           <div className="h-44 w-full pt-2">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={processedMoodDistribution}>
-                <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={11} allowDecimals={false} tickLine={false} />
+                <XAxis dataKey="name" stroke="#78716C" fontSize={11} tickLine={false} />
+                <YAxis stroke="#78716C" fontSize={11} allowDecimals={false} tickLine={false} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                    backgroundColor: '#2D2926',
+                    borderColor: '#5A5A40',
                     borderRadius: '12px',
                     fontSize: '12px',
-                    color: '#fff',
+                    color: '#FDFCFB',
                   }}
                 />
                 <Bar dataKey="value" radius={[8, 8, 0, 0]}>
@@ -207,15 +207,15 @@ export const MoodTrendsModal: React.FC<MoodTrendsModalProps> = ({
 
         {/* On This Day Memory Spotlight */}
         {onThisDayMemories.length > 0 && (
-          <div className="bg-slate-800/60 p-5 rounded-2xl border border-slate-700/50 flex flex-col gap-3">
+          <div className="bg-[#F5F2EB] p-5 rounded-2xl border border-[#E6E1D6] flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                <h3 className="text-sm font-sans font-bold text-white">
+                <Sparkles className="w-4 h-4 text-[#B5945B]" />
+                <h3 className="text-sm font-sans font-bold text-[#2D2926]">
                   On This Day Spotlight — {onThisDayMemories[0].label}
                 </h3>
               </div>
-              <span className="text-xs text-slate-400 font-sans">
+              <span className="text-xs text-[#5C564E] font-sans">
                 {new Date(onThisDayMemories[0].entry.createdAt).toLocaleDateString(undefined, {
                   month: 'short',
                   day: 'numeric',
@@ -224,16 +224,16 @@ export const MoodTrendsModal: React.FC<MoodTrendsModalProps> = ({
               </span>
             </div>
 
-            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex items-center justify-between gap-4">
+            <div className="bg-[#FDFCFB] p-4 rounded-xl border border-[#E6E1D6] flex items-center justify-between gap-4">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   {onThisDayMemories[0].entry.emoji && <span>{onThisDayMemories[0].entry.emoji}</span>}
-                  <h4 className="text-sm font-sans font-semibold text-white truncate">
+                  <h4 className="text-sm font-sans font-semibold text-[#2D2926] truncate">
                     {onThisDayMemories[0].entry.title || 'Untitled Reflection'}
                   </h4>
                 </div>
                 {onThisDayMemories[0].entry.summary && (
-                  <p className="text-xs text-slate-400 italic line-clamp-1 mt-1">
+                  <p className="text-xs text-[#5C564E] italic line-clamp-1 mt-1">
                     "{onThisDayMemories[0].entry.summary}"
                   </p>
                 )}

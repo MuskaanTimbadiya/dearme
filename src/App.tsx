@@ -446,7 +446,7 @@ export default function App() {
       </div>
       {/* Soft Delete Undo Toast */}
       {pendingDelete && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 border border-slate-800 animate-in fade-in slide-in-from-bottom-3">
+        <div className="fixed bottom-6 right-6 z-50 bg-[#2D2926] text-[#FDFCFB] px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 border border-[#5A5A40] animate-in fade-in slide-in-from-bottom-3">
           <span className="text-xs font-sans">Reflection entry queued for deletion.</span>
           <button
             onClick={handleUndoDelete}

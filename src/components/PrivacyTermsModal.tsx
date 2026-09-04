@@ -10,8 +10,8 @@ export const PrivacyTermsModal: React.FC<PrivacyTermsModalProps> = ({ isOpen, on
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 animate-in fade-in">
-      <div className="relative w-full max-w-2xl bg-white text-[#2D2926] rounded-3xl border border-[#E6E1D6] shadow-2xl overflow-hidden p-6 sm:p-8 flex flex-col gap-6 max-h-[85vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in">
+      <div className="relative w-full max-w-2xl bg-[#FDFCFB] text-[#2D2926] rounded-3xl border border-[#E6E1D6] shadow-2xl overflow-hidden p-6 sm:p-8 flex flex-col gap-6 max-h-[85vh] overflow-y-auto">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 rounded-full hover:bg-[#F5F2ED] text-[#8C857B] hover:text-[#2D2926] transition-colors cursor-pointer"

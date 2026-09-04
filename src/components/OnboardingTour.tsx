@@ -57,41 +57,41 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ isOpen, onClose 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 animate-in fade-in">
-      <div className="relative w-full max-w-lg bg-slate-900 text-white rounded-3xl border border-slate-800 shadow-2xl overflow-hidden p-6 sm:p-8 flex flex-col gap-6 animate-in zoom-in-95">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in">
+      <div className="relative w-full max-w-lg bg-[#FDFCFB] text-[#2D2926] rounded-3xl border border-[#E6E1D6] shadow-2xl overflow-hidden p-6 sm:p-8 flex flex-col gap-6 animate-in zoom-in-95">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+          className="absolute top-4 right-4 p-2 rounded-full text-[#8C857B] hover:text-[#2D2926] hover:bg-[#F5F2ED] transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-[#5A5A40] flex items-center justify-center shadow-lg text-white">
-            <Icon className="w-7 h-7" />
+          <div className="w-14 h-14 rounded-2xl bg-[#5A5A40] flex items-center justify-center shadow-xs text-white">
+            <Icon className="w-7 h-7 text-[#FDFCFB]" />
           </div>
           <div>
-            <span className="text-[10px] font-sans uppercase tracking-widest text-[#E6E1D6] font-bold">
+            <span className="text-[10px] font-sans uppercase tracking-widest text-[#5A5A40] font-bold">
               Step {currentStep + 1} of {TOUR_STEPS.length}
             </span>
-            <h3 className="text-xl font-sans font-bold text-white leading-tight">
+            <h3 className="text-xl font-serif font-bold text-[#2D2926] leading-tight">
               {step.title}
             </h3>
           </div>
         </div>
 
-        <p className="text-sm font-sans text-slate-300 leading-relaxed">
+        <p className="text-sm font-sans text-[#5C564E] leading-relaxed">
           {step.description}
         </p>
 
         {/* Step Indicators & Controls */}
-        <div className="flex items-center justify-between border-t border-slate-800 pt-4 mt-2">
+        <div className="flex items-center justify-between border-t border-[#F0EDE8] pt-4 mt-2">
           <div className="flex items-center gap-1.5">
             {TOUR_STEPS.map((_, idx) => (
               <div
                 key={idx}
                 className={`h-1.5 rounded-full transition-all ${
-                  idx === currentStep ? 'w-6 bg-[#E6E1D6]' : 'w-1.5 bg-slate-700'
+                  idx === currentStep ? 'w-6 bg-[#5A5A40]' : 'w-1.5 bg-[#E6E1D6]'
                 }`}
               />
             ))}
@@ -99,7 +99,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ isOpen, onClose 
 
           <button
             onClick={handleNext}
-            className="px-5 py-2.5 rounded-full bg-[#5A5A40] text-white hover:bg-[#4A4A34] text-xs font-sans font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-md"
+            className="px-5 py-2.5 rounded-full bg-[#5A5A40] text-white hover:bg-[#4A4A34] text-xs font-sans font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-xs"
           >
             <span>{currentStep === TOUR_STEPS.length - 1 ? 'Get Started' : 'Next'}</span>
             {currentStep === TOUR_STEPS.length - 1 ? (
